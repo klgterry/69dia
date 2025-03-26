@@ -1,6 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import ViewportFixer from './ViewportFixer'; // 경로에 맞게 수정
 import "./globals.css";
-import ForceViewport from '@/components/ForceViewport';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,12 +20,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ForceViewport /> {/* ✅ 여기! */}
+      <body>
+        <ViewportFixer /> {/* 💥 모든 페이지에서 강제 적용 */}
         {children}
       </body>
     </html>
   );
 }
+
