@@ -108,6 +108,24 @@ function assignPlayerRoles(team, parsedPlayers) {
   console.log("🔄 [클래스 배정 시작] 팀:", team.map(p => p.username));
   console.log("📌 [사용자 지정 클래스]:", parsedPlayers);
 
+  // 1. 사용자 지정 클래스 중에서 단일 지정 우선 배정
+  for (const pos of positions) {
+    for (const player of team) {
+      const username = player.username;
+      if (used.has(username)) continue;
+
+      const preferred = parsedPlayers[username];
+
+      // 🎯 지정 클래스가 딱 하나일 때만 우선 배정
+      if (preferred && preferred.length === 1 && preferred[0] === pos) {
+        assigned.push({ username, class: pos });
+        used.add(username);
+        console.log(`🔒 [단일 지정 클래스 고정] ${username} → ${pos}`);
+        break;
+      }
+    }
+  }
+
   // 1. 사용자 지정 클래스 우선 배정
   for (const pos of positions) {
     for (const player of team) {
@@ -223,14 +241,18 @@ function checkClassDistribution(players) {
   return true;
 }
 
-const getPlayerCount = (input) => {
-  if (!input) return 0;
-  return input
-    .split(/[,/]/)
+function getPlayerCount(players) {
+  // 1. 괄호 안 내용 제거: 참치(어,드) → 참치
+  const cleaned = players.replace(/\([^)]*\)/g, '');
+
+  // 2. 쉼표로 분리해서 유저만 카운트
+  const names = cleaned.split(',')
     .map(name => name.trim())
-    .filter(name => name.length > 0)
-    .length;
-};
+    .filter(name => name.length > 0);
+
+  return names.length;
+}
+
 
 export default function TeamPage() {
     const [players, setPlayers] = useState("");
