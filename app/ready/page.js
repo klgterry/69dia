@@ -807,6 +807,9 @@ export default function TeamPage() {
                                 : current.filter((c) => c !== cls),
                             };
                           });
+                          if (confirmState === "done") {
+                            setConfirmState("default");
+                          }
                         }}
                       />
                       {cls}
