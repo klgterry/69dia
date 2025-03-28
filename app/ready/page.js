@@ -335,19 +335,21 @@ export default function TeamPage() {
     //const parsedPlayers = parsePlayersInput(players);
     //const playerList = Object.keys(parsedPlayers); // ✅ 키를 리스트로 변환
 
-    const playerList = Object.keys(selectedClasses); // 🔁 1. 유저 목록 먼저 만들고
+    const rawInput = players.trim(); // ✅ inputValue ❌ → players ✅
+    const playerList = rawInput
+      .split(',')
+      .map(p => p.trim())
+      .filter(p => p !== '');
 
-    const parsedPlayers = {};                        // 🔁 2. 그 다음 파싱 시작
+    // 🔁 2. 유저별 클래스 매핑
+    const parsedPlayers = {};
     for (const p of playerList) {
       if (selectedClasses[p] && selectedClasses[p].length > 0) {
-        parsedPlayers[p] = selectedClasses[p]; // ✅ 지정한 클래스 사용
+        parsedPlayers[p] = selectedClasses[p]; // ✅ 클래스 지정됨
       } else {
-        parsedPlayers[p] = []; // ✅ 지정 안 한 유저는 빈 배열
+        parsedPlayers[p] = []; // ✅ 클래스 미지정
       }
     }
-
-
-
 
     console.log("🧾 입력된 플레이어 목록(유저만):", playerList);
     console.log("🧾 입력된 플레이어 목록:", parsedPlayers);
@@ -574,7 +576,7 @@ export default function TeamPage() {
               generateTeams();
               setTimeout(() => setIsMixPressed(false), 500);
             }}
-            className="mb-6"
+            className="mb-6 ml-[-10px]"
             disabled={!isReady} // 시각적으로도 비활성화
           >
             <Image
@@ -603,7 +605,7 @@ export default function TeamPage() {
 
             // 이미지 복원은 1.5초 후
             setTimeout(() => setIsCopyResultPressed(false), 500);
-          }} className="mb-6">
+          }} className="mb-6 ml-[10px]">
             <Image
               src={isCopyResultPressed ? "/icons/buttons/copy_result_pressed.png" : "/icons/buttons/copy_result.png"}
               alt="생성결과 복사"
@@ -822,6 +824,7 @@ export default function TeamPage() {
                 // 실제 동작 처리
                 setTimeout(() => {
                   setConfirmState("done");
+                  playSound("class_open.mp3");
                   setShowClassPanel(false);
                 }, 500); // 누른 효과 0.5초 후 완료로 변경
               }}
