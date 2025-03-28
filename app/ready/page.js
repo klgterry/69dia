@@ -32,6 +32,8 @@ async function fetchPlayerInfo(players) {
   return data.players;
 }
 
+
+
 function parsePlayersInput(inputString) {
   const parsed = {};
 
@@ -105,6 +107,13 @@ function assignPlayerRoles(team, parsedPlayers) {
 
   console.log("🔄 [클래스 랜덤] 2회차:", positions); // 예: ["넥", "드", "슴", "어"]
 
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [positions[i], positions[j]] = [positions[j], positions[i]];
+  }
+
+  console.log("🔄 [클래스 랜덤] 3회차:", positions); // 예: ["넥", "드", "슴", "어"]
+
   console.log("🔄 [클래스 배정 시작] 팀:", team.map(p => p.username));
   console.log("📌 [사용자 지정 클래스]:", parsedPlayers);
 
@@ -174,7 +183,7 @@ function assignPlayerRoles(team, parsedPlayers) {
 
 function copyTeamResult(teamA, teamB) {
   const result = `[아래]${teamA.map(p => p.username).join("/")} vs [위]${teamB.map(p => p.username).join("/")}`;
-  
+
   navigator.clipboard.writeText(result)
     .then(() => {
       alert(`✅ 생성결과가 클립보드에 복사되었습니다!\n\n${result}`);
@@ -255,213 +264,287 @@ function getPlayerCount(players) {
 
 
 export default function TeamPage() {
-    const [players, setPlayers] = useState("");
-    const [teamA, setTeamA] = useState([]);
-    const [teamB, setTeamB] = useState([]);
-    const [teamAScore, setTeamAScore] = useState(0);
-    const [teamBScore, setTeamBScore] = useState(0);
-    const [initialTeamA, setInitialTeamA] = useState([]);
-    const [initialTeamB, setInitialTeamB] = useState([]);
-    const [teamsGenerated, setTeamsGenerated] = useState(false); // 팀 생성 완료 여부 상태
-    const [isMixPressed, setIsMixPressed] = useState(false);
-    const [isCopyResultPressed, setIsCopyResultPressed] = useState(false);
-    const [isCopyMatchPressed, setIsCopyMatchPressed] = useState(false);
-    const router = useRouter();
-    const SLOT_DELAY_PER_INDEX = 200;  // 슬롯 하나당 딜레이
-    const SLOT_DURATION = 1000;        // 하나의 슬롯 도는 시간
-    const TOTAL_SLOT_TIME = SLOT_DELAY_PER_INDEX * 7 + SLOT_DURATION; // 8개 기준
-    const [leaderboardTop10, setLeaderboardTop10] = useState([]);
-    const playerCount = getPlayerCount(players);
-    const isReady = playerCount === 8;
+  const [players, setPlayers] = useState("");
+  const [selectedClasses, setSelectedClasses] = useState({});
+  const [showClassPanel, setShowClassPanel] = useState(false);
+  const [isClassButtonPressed, setIsClassButtonPressed] = useState(false);
+  const [confirmState, setConfirmState] = useState("default");
+  const [teamA, setTeamA] = useState([]);
+  const [teamB, setTeamB] = useState([]);
+  const [teamAScore, setTeamAScore] = useState(0);
+  const [teamBScore, setTeamBScore] = useState(0);
+  const [initialTeamA, setInitialTeamA] = useState([]);
+  const [initialTeamB, setInitialTeamB] = useState([]);
+  const [teamsGenerated, setTeamsGenerated] = useState(false); // 팀 생성 완료 여부 상태
+  const [isMixPressed, setIsMixPressed] = useState(false);
+  const [isCopyResultPressed, setIsCopyResultPressed] = useState(false);
+  const [isCopyMatchPressed, setIsCopyMatchPressed] = useState(false);
+  const router = useRouter();
+  const SLOT_DELAY_PER_INDEX = 200;  // 슬롯 하나당 딜레이
+  const SLOT_DURATION = 1000;        // 하나의 슬롯 도는 시간
+  const TOTAL_SLOT_TIME = SLOT_DELAY_PER_INDEX * 7 + SLOT_DURATION; // 8개 기준
+  const [leaderboardTop10, setLeaderboardTop10] = useState([]);
+  const playerCount = getPlayerCount(players);
+  const isReady = playerCount === 8;
 
 
-    useEffect(() => {
-      fetchLeaderboard().then(players => {
-        const top10 = players
-          .filter(p => p.wins >= 1)
-          .sort((a, b) => a.rank - b.rank)
-          .slice(0, 25);
-        setLeaderboardTop10(top10);
-      }).catch(err => console.error("랭킹 데이터 불러오기 실패:", err));
-    }, []);
+  useEffect(() => {
+    fetchLeaderboard().then(players => {
+      const top10 = players
+        .filter(p => p.wins >= 1)
+        .sort((a, b) => a.rank - b.rank)
+        .slice(0, 25);
+      setLeaderboardTop10(top10);
+    }).catch(err => console.error("랭킹 데이터 불러오기 실패:", err));
+  }, []);
+
+  async function fetchAndSetClassInfo(players) {
+    const response = await fetch("/api/gasApi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "getPlayersInfo", players }),
+    });
+    const data = await response.json();
+
+    const classMap = {};
+    for (const p of data.players || []) {
+      classMap[p.username] = p.class?.split(", ").map(c => c.trim()) || [];
+    }
+    setSelectedClasses(classMap);
+  }
 
 
 
-    const handleCopyMatchResult = () => {
-      const aNames = teamA.map(p => p.username || p).join("/");
-      const bNames = teamB.map(p => p.username || p).join("/");
-      const result = `!결과등록 [아래${teamAScore}]${aNames} vs [위${teamBScore}]${bNames}`;
-      
-      
-      navigator.clipboard.writeText(result)
-        .then(() => alert(`✅ 생성결과가 클립보드에 복사되었습니다!\n\n${result}`))
-        .catch(() => alert("❌ 복사 실패!"));
+  const handleCopyMatchResult = () => {
+    const aNames = teamA.map(p => p.username || p).join("/");
+    const bNames = teamB.map(p => p.username || p).join("/");
+    const result = `!결과등록 [아래${teamAScore}]${aNames} vs [위${teamBScore}]${bNames}`;
 
-      console.log("📋 복사된 내용:", result);
-    };
 
-    const generateTeams = async () => {
-      playSound("mix.mp3"); // 🔥 여기서 재생됨
-      setTeamsGenerated(false);
+    navigator.clipboard.writeText(result)
+      .then(() => alert(`✅ 생성결과가 클립보드에 복사되었습니다!\n\n${result}`))
+      .catch(() => alert("❌ 복사 실패!"));
 
-      const parsedPlayers = parsePlayersInput(players);
-      const playerList = Object.keys(parsedPlayers); // ✅ 키를 리스트로 변환
+    console.log("📋 복사된 내용:", result);
+  };
 
-      
-      console.log("🧾 입력된 플레이어 목록(유저만):", playerList);
-      console.log("🧾 입력된 플레이어 목록:", parsedPlayers);
-    
-      if (playerList.length !== 8) {
-        alert("8명의 플레이어를 입력해주세요.");
-        return;
+  const generateTeams = async () => {
+    playSound("mix.mp3"); // 🔥 여기서 재생됨
+    setTeamsGenerated(false);
+
+    //const parsedPlayers = parsePlayersInput(players);
+    //const playerList = Object.keys(parsedPlayers); // ✅ 키를 리스트로 변환
+
+    const playerList = Object.keys(selectedClasses); // 🔁 1. 유저 목록 먼저 만들고
+
+    const parsedPlayers = {};                        // 🔁 2. 그 다음 파싱 시작
+    for (const p of playerList) {
+      if (selectedClasses[p] && selectedClasses[p].length > 0) {
+        parsedPlayers[p] = selectedClasses[p]; // ✅ 지정한 클래스 사용
+      } else {
+        parsedPlayers[p] = []; // ✅ 지정 안 한 유저는 빈 배열
       }
-    
-      try {
-        console.log("📡 fetchPlayerInfo 호출 전");
-        const playerData = await fetchPlayerInfo(playerList);
-        console.log("📬 fetchPlayerInfo 응답:", playerData);
-      
-        if (!Array.isArray(playerData) || playerData.length !== 8) {
-          console.warn("⚠️ 예상한 8명의 데이터를 받지 못했습니다:", playerData);
-        }
+    }
 
-        if (!checkClassDistribution(playerData)) {
-          return; // 클래스 분포가 부족하면 더 진행하지 않음
-        }
-           
-        const enrichedPlayerData = calculateEffectiveMMR(playerData, parsedPlayers);
-      
-        console.log("📊 MMR 정렬 전 데이터:", enrichedPlayerData.map(p => ({
-          username: p.username,
-          effectiveMMR: p.effectiveMMR,
-        })));
-      
-        const sorted = enrichedPlayerData.sort((a, b) => b.effectiveMMR - a.effectiveMMR);
-      
-        console.log("📊 정렬 후 데이터:", enrichedPlayerData.map(p => ({
-          username: p.username,
-          effectiveMMR: p.effectiveMMR,
-        })));
 
-        // 3. 상위 4명 중 2명, 하위 4명 중 2명 선택
-        const topHalf = sorted.slice(0, 4);
-        const bottomHalf = sorted.slice(4, 8); // 총 8명 기준
 
-        const getRandomSamples = (arr, n) => {
-          const copy = [...arr];
-          const result = [];
-          for (let i = 0; i < n; i++) {
-            const idx = Math.floor(Math.random() * copy.length);
-            result.push(copy.splice(idx, 1)[0]);
-          }
-          return result;
-        };
 
-        let attempt = 0;
-        const maxAttempts = 10;
-        let success = false;
+    console.log("🧾 입력된 플레이어 목록(유저만):", playerList);
+    console.log("🧾 입력된 플레이어 목록:", parsedPlayers);
 
-        while (attempt < maxAttempts && !success) {
-          console.log(`🔁 [시도 ${attempt + 1}] 팀 배정 시작`);
-    
-          const team1Top = getRandomSamples(topHalf, 2);
-          const team1Bottom = getRandomSamples(bottomHalf, 2);
-          const team1Data = [...team1Top, ...team1Bottom];
-          const team1Usernames = new Set(team1Data.map(p => p.username));
-          const team2Data = sorted.filter(p => !team1Usernames.has(p.username));
-    
-          console.log("🔎 팀1 후보:", team1Data.map(p => p.username));
-          console.log("🔎 팀2 후보:", team2Data.map(p => p.username));
-    
-          const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
-          const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
-    
-          if (team1Assigned && team2Assigned) {
-            console.log("✅ 팀 배정 성공!");
-            setTeamA(team1Assigned);
-            setTeamB(team2Assigned);
-            setInitialTeamA(team1Assigned);
-            setInitialTeamB(team2Assigned);
-            success = true;
-            
-            setTimeout(() => {
-              setTeamsGenerated(true); // 팀 표시용 드롭다운으로 변경
-              playSound("victory.mp3");
-            }, TOTAL_SLOT_TIME); // 2.5초 뒤에 전환 (슬롯 애니메이션 종료 시점)
-          } else {
-            console.warn("❌ 클래스 배정 실패. 다음 조합으로 재시도.");
-          }
-    
-          attempt++;
-        }
+    if (playerList.length !== 8) {
+      alert("8명의 플레이어를 입력해주세요.");
+      return;
+    }
 
-        if (!success) {
-          alert("🚨 유효한 클래스 배정을 찾지 못했습니다. 유저들의 클래스 정보를 확인해주세요.");
-        }
+    try {
+      console.log("📡 fetchPlayerInfo 호출 전");
+      const playerData = await fetchPlayerInfo(playerList);
+      console.log("📬 fetchPlayerInfo 응답:", playerData);
 
-      } catch (error) {
-        console.error("🚨 유저 데이터 요청 중 오류 발생:", error);
-        alert("🚨 유저 데이터를 가져오지 못했습니다: " + error.message);
+      if (!Array.isArray(playerData) || playerData.length !== 8) {
+        console.warn("⚠️ 예상한 8명의 데이터를 받지 못했습니다:", playerData);
       }
-      
-    };
-    
+
+      if (!checkClassDistribution(playerData)) {
+        return; // 클래스 분포가 부족하면 더 진행하지 않음
+      }
+
+      const enrichedPlayerData = calculateEffectiveMMR(playerData, parsedPlayers);
+
+      console.log("📊 MMR 정렬 전 데이터:", enrichedPlayerData.map(p => ({
+        username: p.username,
+        effectiveMMR: p.effectiveMMR,
+      })));
+
+      const sorted = enrichedPlayerData.sort((a, b) => b.effectiveMMR - a.effectiveMMR);
+
+      console.log("📊 정렬 후 데이터:", enrichedPlayerData.map(p => ({
+        username: p.username,
+        effectiveMMR: p.effectiveMMR,
+      })));
+
+      // 3. 상위 4명 중 2명, 하위 4명 중 2명 선택
+      const topHalf = sorted.slice(0, 4);
+      const bottomHalf = sorted.slice(4, 8); // 총 8명 기준
+
+      const getRandomSamples = (arr, n) => {
+        const copy = [...arr];
+        const result = [];
+        for (let i = 0; i < n; i++) {
+          const idx = Math.floor(Math.random() * copy.length);
+          result.push(copy.splice(idx, 1)[0]);
+        }
+        return result;
+      };
+
+      let attempt = 0;
+      const maxAttempts = 10;
+      let success = false;
+
+      while (attempt < maxAttempts && !success) {
+        console.log(`🔁 [시도 ${attempt + 1}] 팀 배정 시작`);
+
+        const team1Top = getRandomSamples(topHalf, 2);
+        const team1Bottom = getRandomSamples(bottomHalf, 2);
+        const team1Data = [...team1Top, ...team1Bottom];
+        const team1Usernames = new Set(team1Data.map(p => p.username));
+        const team2Data = sorted.filter(p => !team1Usernames.has(p.username));
+
+        console.log("🔎 팀1 후보:", team1Data.map(p => p.username));
+        console.log("🔎 팀2 후보:", team2Data.map(p => p.username));
+
+        const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
+        const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
+
+        if (team1Assigned && team2Assigned) {
+          console.log("✅ 팀 배정 성공!");
+          setTeamA(team1Assigned);
+          setTeamB(team2Assigned);
+          setInitialTeamA(team1Assigned);
+          setInitialTeamB(team2Assigned);
+          success = true;
+
+          setTimeout(() => {
+            setTeamsGenerated(true); // 팀 표시용 드롭다운으로 변경
+            playSound("victory.mp3");
+          }, TOTAL_SLOT_TIME); // 2.5초 뒤에 전환 (슬롯 애니메이션 종료 시점)
+        } else {
+          console.warn("❌ 클래스 배정 실패. 다음 조합으로 재시도.");
+        }
+
+        attempt++;
+      }
+
+      if (!success) {
+        alert("🚨 유효한 클래스 배정을 찾지 못했습니다. 유저들의 클래스 정보를 확인해주세요.");
+      }
+
+    } catch (error) {
+      console.error("🚨 유저 데이터 요청 중 오류 발생:", error);
+      alert("🚨 유저 데이터를 가져오지 못했습니다: " + error.message);
+    }
+
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       {/* 네비게이션 바 */}
       <nav className="flex justify-start items-center space-x-6 bg-gray-800 p-2 rounded-lg shadow-md text-lg font-bold tracking-widest pl-4">
-          {/* 로고 */}
-          <div className="relative w-12 h-12">
+        {/* 로고 */}
+        <div className="relative w-12 h-12">
           <Image src="/icons/logo.png" alt="Logo" fill className="object-contain" />
-          </div>
-          
-          {/* 네비게이션 버튼 */}
-          {[
-            { name: "home", path: "/" },
-            { name: "history", path: "/history" },
-            { name: "user", path: "/user" },
-            { name: "rule", path: "/rule" },
-            { name: "setting", path: "/setting" }, // Ready 버튼 추가
-            { name: "ready", path: "/ready" } // Ready 버튼 추가
-          ].map(({ name, path }) => (
-            <button
-              key={name}
-              onClick={() => {
-                if (path === "/ready" || path === "/" || path === "/rule") {
-                  router.push(path); // ✅ 실제로 이동
-                } else {
-                  alert("준비 중입니다."); // ✅ 알림만
-                }
-              }}
-              className="w-28 h-8 flex items-center justify-center md:w-36 md:h-10"
-              style={{
-                backgroundImage: `url('/icons/nav/${name}.png')`,
-                backgroundSize: "contain",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "center",
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}_hover.png')`}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}.png')`}
-            />
-          ))}
+        </div>
+
+        {/* 네비게이션 버튼 */}
+        {[
+          { name: "home", path: "/" },
+          { name: "history", path: "/history" },
+          { name: "user", path: "/user" },
+          { name: "rule", path: "/rule" },
+          { name: "setting", path: "/setting" }, // Ready 버튼 추가
+          { name: "ready", path: "/ready" } // Ready 버튼 추가
+        ].map(({ name, path }) => (
+          <button
+            key={name}
+            onClick={() => {
+              if (path === "/ready" || path === "/" || path === "/rule") {
+                router.push(path); // ✅ 실제로 이동
+              } else {
+                alert("준비 중입니다."); // ✅ 알림만
+              }
+            }}
+            className="w-28 h-8 flex items-center justify-center md:w-36 md:h-10"
+            style={{
+              backgroundImage: `url('/icons/nav/${name}.png')`,
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}_hover.png')`}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}.png')`}
+          />
+        ))}
       </nav>
-      
+
       <div className="flex flex-col items-center">
-          <h1 className="text-left text-4xl font-bold mt-6 mb-2 pr-140">
-            *팀 생성 (
-            <span className={`${playerCount === 8 ? "text-green-400" : "text-red-400"} font-bold`}>
-              {playerCount} </span>
-            / 8명)
-          </h1>
-        <div className="flex items-center space-x-4 mb-4">
-        <div className="relative w-[500px] h-[60px] mb-6">
+        <h1 className="text-left text-4xl font-bold mt-6 mb-2 pr-140">
+          *팀 생성 (
+          <span className={`${playerCount === 8 ? "text-green-400" : "text-red-400"} font-bold`}>
+            {playerCount} </span>
+          / 8명)
+        </h1>
+        <div className="flex items-center mr-[-5px] mb-4">
+          <button
+            onMouseDown={() => setIsClassButtonPressed(true)}
+            onMouseUp={() => setIsClassButtonPressed(false)}
+            onMouseLeave={() => setIsClassButtonPressed(false)}
+            onClick={() => {
+              if (showClassPanel) {
+                setShowClassPanel(false); // 열려있으면 닫기
+                return;
+              }
+              const rawList = players
+                .replace(/\([^)]*\)/g, "")
+                .split(",")
+                .map((n) => n.trim())
+                .filter((n) => n);
+
+              const initialClassMap = {};
+              rawList.forEach((username) => {
+                initialClassMap[username] = selectedClasses[username] || [];
+              });
+
+              setSelectedClasses(initialClassMap);
+              setShowClassPanel(true);
+
+              playSound("class_open.mp3");
+            }}
+            disabled={!isReady}
+            className="mb-6 w-[53px] h-[90px]" // 원하는 사이즈 조절 가능
+          >
+            <Image
+              src={
+                !isReady
+                  ? "/icons/buttons/gem_disabled.png"
+                  : isClassButtonPressed
+                    ? "/icons/buttons/gem_pressed.png"
+                    : "/icons/buttons/gem_default.png"
+              }
+              alt="클래스 지정"
+              width={200}
+              height={200}
+            />
+          </button>
+
+          <div className="relative w-[470px] h-[60px] mb-6">
             <input
               type="text"
               value={players}
               onChange={(e) => setPlayers(e.target.value)}
               placeholder="플레이어 이름을 ,로 구분해서 입력"
-              className="w-[500px] h-[60px] pl-4 pr-4 text-white bg-transparent border-none outline-none text-xl mb-6"
+              className="w-[450px] h-[60px] pl-3 pr-4 text-white bg-transparent border-none outline-none text-lg mb-6"
               style={{
                 backgroundImage: "url('/icons/inputs/player_input_frame.png')", // ✅ 원하는 이미지 경로
                 backgroundSize: "100% 100%",
@@ -472,61 +555,65 @@ export default function TeamPage() {
             {/* ❌ Clear 버튼 */}
             {players && (
               <button
-                onClick={() => setPlayers("")}
-                className="absolute right-[5%] top-1/2 transform -translate-y-1/2 text-white hover:text-red-400 text-xl"
+                onClick={() => {
+                  setPlayers("");
+                  setConfirmState("default");
+                  setShowClassPanel(false); // 👉 사이드 패널도 닫기
+                }}
+                className="absolute left-[85%] top-1/2 transform -translate-y-1/2 text-white hover:text-red-400 text-xl"
                 title="입력 지우기"
               >
                 ✕
               </button>
             )}
-             </div>
-             <button
-              onClick={() => {
-                if (!isReady) return; // 8명이 아닐 경우 클릭 무시
-                setIsMixPressed(true);
-                generateTeams();
-                setTimeout(() => setIsMixPressed(false), 500);
-              }}
-              className="mb-6"
-              disabled={!isReady} // 시각적으로도 비활성화
-            >
-              <Image
-                src={
-                  !isReady
-                    ? "/icons/buttons/mix_disabled.png" // ❌ 비활성화 이미지
-                    : isMixPressed
+          </div>
+          <button
+            onClick={() => {
+              if (!isReady) return; // 8명이 아닐 경우 클릭 무시
+              setIsMixPressed(true);
+              generateTeams();
+              setTimeout(() => setIsMixPressed(false), 500);
+            }}
+            className="mb-6"
+            disabled={!isReady} // 시각적으로도 비활성화
+          >
+            <Image
+              src={
+                !isReady
+                  ? "/icons/buttons/mix_disabled.png" // ❌ 비활성화 이미지
+                  : isMixPressed
                     ? "/icons/buttons/mix_pressed.png" // ✅ 누른 상태
                     : "/icons/buttons/mix.png" // ✅ 기본
-                }
-                alt="MIX!"
-                width={120}
-                height={50}
-                className={!isReady ? "opacity-60" : "opacity-100"}
-              />
-            </button>
-            <button  onClick={() => {
-              setIsCopyResultPressed(true);
+              }
+              alt="MIX!"
+              width={120}
+              height={20}
+              className={!isReady ? "opacity-60" : "opacity-100"}
+            />
+          </button>
+          <button onClick={() => {
+            setIsCopyResultPressed(true);
 
-              playSound("alert.mp3");
+            playSound("alert.mp3");
 
-              // ⚡ 복사 + alert 살짝 딜레이
-              setTimeout(() => {
-                copyTeamResult(teamA, teamB); // 내부에서 alert 호출
-              }, 1000);
+            // ⚡ 복사 + alert 살짝 딜레이
+            setTimeout(() => {
+              copyTeamResult(teamA, teamB); // 내부에서 alert 호출
+            }, 1000);
 
-              // 이미지 복원은 1.5초 후
-              setTimeout(() => setIsCopyResultPressed(false), 500);
-            }}className="mb-6">
-                <Image 
-                  src={isCopyResultPressed ? "/icons/buttons/copy_result_pressed.png" : "/icons/buttons/copy_result.png"} 
-                  alt="생성결과 복사" 
-                  width={175} 
-                  height={50} 
-                />
-              </button>
-          </div>
-          
-          {/* 즐겨찾기 영역 (배경 이미지 + 버튼 오버레이) */}
+            // 이미지 복원은 1.5초 후
+            setTimeout(() => setIsCopyResultPressed(false), 500);
+          }} className="mb-6">
+            <Image
+              src={isCopyResultPressed ? "/icons/buttons/copy_result_pressed.png" : "/icons/buttons/copy_result.png"}
+              alt="생성결과 복사"
+              width={175}
+              height={20}
+            />
+          </button>
+        </div>
+
+        {/* 즐겨찾기 영역 (배경 이미지 + 버튼 오버레이) */}
         <div className="relative w-[820px] h-[100px] mx-auto -mt-10">
           {/* 배경 이미지 */}
           <Image
@@ -557,11 +644,11 @@ export default function TeamPage() {
         </div>
 
         <h1 className="text-left text-4xl font-bold mt-6 mb-2 pr-150">*팀 생성 결과</h1>
-        
+
         <div className="flex justify-center items-center relative">
           {/* Combined Team Image */}
-           {/* 팀 생성 완료 전과 후에 다른 이미지를 표시 */}
-           {teamsGenerated ? (
+          {/* 팀 생성 완료 전과 후에 다른 이미지를 표시 */}
+          {teamsGenerated ? (
             <Image src="/icons/team_complete.png" alt="팀 생성 완료" width={800} height={400} />
           ) : (
             <Image src="/icons/team_combined.png" alt="팀 대결" width={800} height={400} />
@@ -581,23 +668,23 @@ export default function TeamPage() {
                       delay={index * 200}
                     />
                   ) : (
-                  <select
-                    value={player.username}
-                    onChange={(e) => {
-                      const selectedPlayer = initialTeamA.find(p => p.username === e.target.value);
-                      const updated = [...teamA];
-                      updated[index] = selectedPlayer;
-                      setTeamA(updated);
-                    }}
-                    className="bg-gray-800 text-white rounded p-1 text-sm"
-                  >
-                    {initialTeamA.map((p, idx) => (
-                      <option key={`${p.username}-${idx}`} value={p.username}>
-                        {p.username}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                    <select
+                      value={player.username}
+                      onChange={(e) => {
+                        const selectedPlayer = initialTeamA.find(p => p.username === e.target.value);
+                        const updated = [...teamA];
+                        updated[index] = selectedPlayer;
+                        setTeamA(updated);
+                      }}
+                      className="bg-gray-800 text-white rounded p-1 text-sm"
+                    >
+                      {initialTeamA.map((p, idx) => (
+                        <option key={`${p.username}-${idx}`} value={p.username}>
+                          {p.username}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               ))}
             </div>
@@ -639,23 +726,23 @@ export default function TeamPage() {
                       delay={index * 200}
                     />
                   ) : (
-                  <select
-                    value={player.username}
-                    onChange={(e) => {
-                      const selectedPlayer = initialTeamB.find(p => p.username === e.target.value);
-                      const updated = [...teamB];
-                      updated[index] = selectedPlayer;
-                      setTeamB(updated);
-                    }}
-                    className="bg-gray-800 text-white rounded p-1 text-sm"
-                  >
-                    {initialTeamB.map((p, idx) => (
-                      <option key={`${p.username}-${idx}`} value={p.username}>
-                        {p.username}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                    <select
+                      value={player.username}
+                      onChange={(e) => {
+                        const selectedPlayer = initialTeamB.find(p => p.username === e.target.value);
+                        const updated = [...teamB];
+                        updated[index] = selectedPlayer;
+                        setTeamB(updated);
+                      }}
+                      className="bg-gray-800 text-white rounded p-1 text-sm"
+                    >
+                      {initialTeamB.map((p, idx) => (
+                        <option key={`${p.username}-${idx}`} value={p.username}>
+                          {p.username}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               ))}
             </div>
@@ -676,15 +763,88 @@ export default function TeamPage() {
           setTimeout(() => setIsCopyMatchPressed(false), 500);
         }}>
           <button className="w-48 h-12">
-            <Image 
-              src={isCopyMatchPressed ? "/icons/buttons/copy_match_pressed.png" : "/icons/buttons/copy_match.png"} 
-              alt="경기결과 복사" 
-              width={192} 
-              height={48} 
+            <Image
+              src={isCopyMatchPressed ? "/icons/buttons/copy_match_pressed.png" : "/icons/buttons/copy_match.png"}
+              alt="경기결과 복사"
+              width={192}
+              height={48}
+              style={{ height: "auto" }} // ✅ 비율 유지 
             />
           </button>
         </div>
       </div>
+      {showClassPanel && (
+        <div className="fixed top-[175px] left-45 h-[calc(100%-72px)] w-[350px] text-white z-50 shadow-lg p-6 overflow-y-auto" style={{
+          height: "480px",
+          backgroundImage: "url('/images/side_panel_bg.png')", // ✅ 실제 이미지 경로로 변경
+          backgroundSize: "100% 100%",
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center",
+        }}>
+          {Object.entries(selectedClasses).map(([username, selected]) => (
+            <div key={username} className="mb-4 pl-3 flex items-center gap-x-5">
+              <span className="w-20 text-2xl">{username}</span>
+              <div className="flex gap-4">
+                {["드", "어", "넥", "슴"].map((cls) => {
+                  const isChecked = selected?.includes(cls);
+                  return (
+                    <label
+                      key={cls}
+                      className={`flex items-center gap-1 cursor-pointer ${isChecked ? "text-green-400 font-bold" : "text-white"} text-lg`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          setSelectedClasses((prev) => {
+                            const current = prev[username] || [];
+                            return {
+                              ...prev,
+                              [username]: e.target.checked
+                                ? [...current, cls].slice(0, 3)
+                                : current.filter((c) => c !== cls),
+                            };
+                          });
+                        }}
+                      />
+                      {cls}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={() => {
+                setConfirmState("pressed");
+
+                // 실제 동작 처리
+                setTimeout(() => {
+                  setConfirmState("done");
+                  setShowClassPanel(false);
+                }, 500); // 누른 효과 0.5초 후 완료로 변경
+              }}
+              onMouseDown={() => setConfirmState("pressed")}
+              onMouseUp={() => setConfirmState("done")}
+              className="w-[90px] h-[30px]"
+            >
+              <Image
+                src={
+                  confirmState === "pressed"
+                    ? "/icons/buttons/confirm_pressed.png"
+                    : confirmState === "done"
+                      ? "/icons/buttons/confirm_done.png"
+                      : "/icons/buttons/confirm_default.png"
+                }
+                alt="확인"
+                width={100}
+                height={30}
+              />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
