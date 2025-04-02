@@ -212,21 +212,25 @@ export default function HomePage() {
   }, []);
   
   function openPopup() {
-    // 첫 번째 팝업: 왼쪽 상단
-    window.open(
-      "/popup1",
-      "popup1",
-      "width=509,height=669,left=0,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
-    );
+    const isMobile = window.innerWidth <= 768; // 또는 userAgent 체크도 가능
   
-    // 두 번째 팝업: 첫 번째 오른쪽에 나란히
-    window.open(
-      "/popup2",
-      "popup2",
-      "width=497,height=600,left=509,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
-    );
+    if (isMobile) {
+        return;
+    } else {
+      // 데스크탑용 기본 팝업
+      window.open(
+        "/popup1",
+        "popup1",
+        "width=509,height=669,left=0,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
+      );
+      window.open(
+        "/popup2",
+        "popup2",
+        "width=497,height=600,left=509,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
+      );
+    }
   }
-  
+    
   useEffect(() => {
     fetchSeasonList().then((data) => {
       setSeasonList(data);
