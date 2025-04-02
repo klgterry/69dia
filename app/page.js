@@ -287,11 +287,11 @@ export default function HomePage() {
           {/* 네비게이션 버튼 */}
           {[
             { name: "home", path: "/" },
-            { name: "history", path: "/history" },
-            { name: "user", path: "/user" },
             { name: "rule", path: "/rule" },
-            { name: "setting", path: "/setting" }, // Ready 버튼 추가
-            { name: "ready", path: "/ready" } // Ready 버튼 추가
+            { name: "setting", path: "/setting" },
+            { name: "user", path: "/user" },
+            { name: "history", path: "/history" },
+            { name: "ready", path: "/ready" }
           ].map(({ name, path }) => (
             <button
               key={name}
