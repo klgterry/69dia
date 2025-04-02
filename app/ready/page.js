@@ -284,36 +284,22 @@ export default function TeamPage() {
   const SLOT_DURATION = 1000;        // 하나의 슬롯 도는 시간
   const TOTAL_SLOT_TIME = SLOT_DELAY_PER_INDEX * 7 + SLOT_DURATION; // 8개 기준
   const [leaderboardTop10, setLeaderboardTop10] = useState([]);
+  const [isTop10Loading, setIsTop10Loading] = useState(true);
   const playerCount = getPlayerCount(players);
   const isReady = playerCount === 8;
 
 
   useEffect(() => {
+    setIsTop10Loading(true);
     fetchLeaderboard().then(players => {
       const top10 = players
         .filter(p => p.wins >= 1)
         .sort((a, b) => a.rank - b.rank)
-        .slice(0, 25);
+        .slice(0, 22);
       setLeaderboardTop10(top10);
+      setIsTop10Loading(false);
     }).catch(err => console.error("랭킹 데이터 불러오기 실패:", err));
   }, []);
-
-  async function fetchAndSetClassInfo(players) {
-    const response = await fetch("/api/gasApi", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "getPlayersInfo", players }),
-    });
-    const data = await response.json();
-
-    const classMap = {};
-    for (const p of data.players || []) {
-      classMap[p.username] = p.class?.split(", ").map(c => c.trim()) || [];
-    }
-    setSelectedClasses(classMap);
-  }
-
-
 
   const handleCopyMatchResult = () => {
     const aNames = teamA.map(p => p.username || p).join("/");
@@ -471,7 +457,7 @@ export default function TeamPage() {
           <button
             key={name}
             onClick={() => {
-              if (path === "/ready" || path === "/" || path === "/rule") {
+              if (path === "/ready" || path === "/" || path === "/rule" || path === "/setting") {
                 router.push(path); // ✅ 실제로 이동
               } else {
                 alert("준비 중입니다."); // ✅ 알림만
@@ -617,7 +603,6 @@ export default function TeamPage() {
 
         {/* 즐겨찾기 영역 (배경 이미지 + 버튼 오버레이) */}
         <div className="relative w-[820px] h-[100px] mx-auto -mt-10">
-          {/* 배경 이미지 */}
           <Image
             src="/icons/labels/favorite_title.png"
             alt="즐겨찾기 제목"
@@ -625,23 +610,26 @@ export default function TeamPage() {
             className="object-contain"
           />
 
-          {/* 버튼 오버레이 */}
           <div className="absolute top-1/2 left-[54%] transform -translate-x-1/2 -translate-y-1/2 flex flex-wrap justify-left gap-1 w-[90%]">
-            {leaderboardTop10.map((player) => (
-              <button
-                key={player.username}
-                onClick={() => {
-                  const nameList = players.split(",").map(p => p.trim()).filter(p => p.length > 0);
-                  if (!nameList.includes(player.username)) {
-                    const newList = [...nameList, player.username];
-                    setPlayers(newList.join(",") + ",");
-                  }
-                }}
-                className="px-3 py-1 text-white bg-transparent border border-white rounded-full shadow-md hover:bg-white hover:text-gray-900 transition-all duration-200 text-sm"
-              >
-                {player.username}
-              </button>
-            ))}
+            {isTop10Loading ? (
+              <span className="text-white text-sm">🚀 즐겨찾기기 데이터를 불러오는 중입니다...</span>
+            ) : (
+              leaderboardTop10.map((player) => (
+                <button
+                  key={player.username}
+                  onClick={() => {
+                    const nameList = players.split(",").map(p => p.trim()).filter(p => p.length > 0);
+                    if (!nameList.includes(player.username)) {
+                      const newList = [...nameList, player.username];
+                      setPlayers(newList.join(",") + ",");
+                    }
+                  }}
+                  className="px-3 py-1 text-white bg-transparent border border-white rounded-full shadow-md hover:bg-white hover:text-gray-900 transition-all duration-200 text-sm"
+                >
+                  {player.username}
+                </button>
+              ))
+            )}
           </div>
         </div>
 
