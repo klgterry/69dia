@@ -4,17 +4,6 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
-// GAS API에서 랭킹 데이터 가져오기
-async function fetchLeaderboard() {
-  const response = await fetch("/api/gasApi?action=getLeaderboard");
-  if (!response.ok) {
-    throw new Error("Failed to fetch leaderboard");
-  }
-  const data = await response.json();
-  //console.log("📊 가져온 랭킹 데이터:", data); // ✅ 데이터 확인
-  return data;
-}
-
 async function fetchSeasonList() {
   const response = await fetch("/api/gasApi?action=getSeasonList");
   if (!response.ok) {
@@ -185,26 +174,6 @@ export default function HomePage() {
 
 
   const router = useRouter();
-
-  /*
-  useEffect(() => {
-    fetchLeaderboard()
-      .then((data) => {
-        if (data.players) {
-          setLeaderboard(data.players.map(player => ({
-            rank: player.rank,
-            prevRank: player.prevRank,
-            username: player.username,
-            wins: player.wins || 0,
-            druidWins: player.druidWins || 0,
-            oracleWins: player.oracleWins || 0,
-            necroWins: player.necroWins || 0,
-            summonerWins: player.summonerWins || 0,
-          })));
-        }
-      })
-      .catch((error) => console.error("Error fetching leaderboard:", error));
-  }, []);*/
 
   // app/page.js 또는 HomePage 컴포넌트 내부
   useEffect(() => {

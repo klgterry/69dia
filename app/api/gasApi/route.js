@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwCzF5JazXRxM4y7---jwORVxxnuxIP0IsJXVNjYXvIT87UMx5p_Xb9Licw4FzEPRvM/exec"; // ✅ 실제 GAS 배포 URL
+const GAS_URL = "https://script.google.com/macros/s/AKfycbykbX8vsvwIJlzq-F7Yk2bv5ZB2pHBg986xASsITj5rK7tgrXnLyF7XChKGNRDZntxE/exec"; // ✅ 실제 GAS 배포 URL
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
