@@ -33,7 +33,6 @@ async function fetchPlayerInfo(players) {
 }
 
 
-
 function parsePlayersInput(inputString) {
   const parsed = {};
 
@@ -86,99 +85,6 @@ function calculateEffectiveMMR(players, parsedPlayers) {
 
     return { ...p, effectiveMMR };
   });
-}
-
-function assignPlayerRoles(team, parsedPlayers) {
-  const positions = ["드", "어", "넥", "슴"];
-  const assigned = [];
-  const used = new Set();
-
-  for (let i = positions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [positions[i], positions[j]] = [positions[j], positions[i]];
-  }
-
-  console.log("🔄 [클래스 랜덤] 1회차:", positions); // 예: ["넥", "드", "슴", "어"]
-
-  for (let i = positions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [positions[i], positions[j]] = [positions[j], positions[i]];
-  }
-
-  console.log("🔄 [클래스 랜덤] 2회차:", positions); // 예: ["넥", "드", "슴", "어"]
-
-  for (let i = positions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [positions[i], positions[j]] = [positions[j], positions[i]];
-  }
-
-  console.log("🔄 [클래스 랜덤] 3회차:", positions); // 예: ["넥", "드", "슴", "어"]
-
-  console.log("🔄 [클래스 배정 시작] 팀:", team.map(p => p.username));
-  console.log("📌 [사용자 지정 클래스]:", parsedPlayers);
-
-  // 1. 사용자 지정 클래스 중에서 단일 지정 우선 배정
-  for (const pos of positions) {
-    for (const player of team) {
-      const username = player.username;
-      if (used.has(username)) continue;
-
-      const preferred = parsedPlayers[username];
-
-      // 🎯 지정 클래스가 딱 하나일 때만 우선 배정
-      if (preferred && preferred.length === 1 && preferred[0] === pos) {
-        assigned.push({ username, class: pos });
-        used.add(username);
-        console.log(`🔒 [단일 지정 클래스 고정] ${username} → ${pos}`);
-        break;
-      }
-    }
-  }
-
-  // 1. 사용자 지정 클래스 우선 배정
-  for (const pos of positions) {
-    for (const player of team) {
-      const username = player.username;
-      if (used.has(username)) continue;
-
-      const preferred = parsedPlayers[username];
-      if (preferred && preferred.includes(pos)) {
-        assigned.push({ username, class: pos });
-        used.add(username);
-        console.log(`✅ [지정 클래스 배정] ${username} → ${pos}`);
-        break;
-      }
-    }
-  }
-
-  // 2. 나머지는 가능한 포지션으로 자동 배정
-  for (const pos of positions) {
-    if (assigned.some(p => p.class === pos)) continue;
-
-    const candidates = team.filter(p => {
-      const username = p.username;
-      if (used.has(username)) return false;
-      const available = p.class.split(", ").map(c => c.trim());
-      return available.includes(pos);
-    });
-
-    if (candidates.length > 0) {
-      const randomPick = candidates[Math.floor(Math.random() * candidates.length)];
-      assigned.push({ username: randomPick.username, class: pos });
-      used.add(randomPick.username);
-      console.log(`🌀 [자동 클래스 배정] ${randomPick.username} → ${pos}`);
-    } else {
-      console.warn(`⚠️ [포지션 미배정] ${pos}에 배정 가능한 유저 없음`);
-      return null; // ⚠️ 배정 실패
-    }
-  }
-
-  // 3. 드 → 어 → 넥 → 슴 순 정렬
-  const positionOrder = { "드": 0, "어": 1, "넥": 2, "슴": 3 };
-  assigned.sort((a, b) => positionOrder[a.class] - positionOrder[b.class]);
-
-  console.log("✅ [최종 클래스 배정 결과]", assigned);
-  return assigned;
 }
 
 function copyTeamResult(teamA, teamB) {
@@ -287,6 +193,8 @@ export default function TeamPage() {
   const [isTop10Loading, setIsTop10Loading] = useState(true);
   const playerCount = getPlayerCount(players);
   const isReady = playerCount === 8;
+  const [isGuideButtonPressed, setIsGuideButtonPressed] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
 
   useEffect(() => {
@@ -306,6 +214,13 @@ export default function TeamPage() {
     const bNames = teamB.map(p => p.username || p).join("/");
     const result = `!결과등록 [아래${teamAScore}]${aNames} vs [위${teamBScore}]${bNames}`;
 
+    // 💡 팀 색상 갱신
+    setPreviousTeamMap(
+      Object.fromEntries([
+        ...teamA.map(p => [p.username, "A"]),
+        ...teamB.map(p => [p.username, "B"]),
+      ])
+    );
 
     navigator.clipboard.writeText(result)
       .then(() => alert(`✅ 생성결과가 클립보드에 복사되었습니다!\n\n${result}`))
@@ -314,126 +229,302 @@ export default function TeamPage() {
     console.log("📋 복사된 내용:", result);
   };
 
+
+  // generateTeams 리팩터링: default / rematch 분기
+  const [teamMode, setTeamMode] = useState("default");
+  const [previousTeamMap, setPreviousTeamMap] = useState({});
+
   const generateTeams = async () => {
-    playSound("mix.mp3"); // 🔥 여기서 재생됨
+    playSound("mix.mp3");
     setTeamsGenerated(false);
 
-    //const parsedPlayers = parsePlayersInput(players);
-    //const playerList = Object.keys(parsedPlayers); // ✅ 키를 리스트로 변환
+    const rawInput = players.trim();
+    const playerList = rawInput.split(',').map(p => p.trim()).filter(p => p !== '');
 
-    const rawInput = players.trim(); // ✅ inputValue ❌ → players ✅
-    const playerList = rawInput
-      .split(',')
-      .map(p => p.trim())
-      .filter(p => p !== '');
-
-    // 🔁 2. 유저별 클래스 매핑
-    const parsedPlayers = {};
-    for (const p of playerList) {
-      if (selectedClasses[p] && selectedClasses[p].length > 0) {
-        parsedPlayers[p] = selectedClasses[p]; // ✅ 클래스 지정됨
-      } else {
-        parsedPlayers[p] = []; // ✅ 클래스 미지정
-      }
-    }
-
-    console.log("🧾 입력된 플레이어 목록(유저만):", playerList);
-    console.log("🧾 입력된 플레이어 목록:", parsedPlayers);
+    console.log("🎮 generateTeams 실행됨. 현재 팀 모드:", teamMode);
+    console.log("🧑‍🤝‍🧑 플레이어 목록:", playerList);
 
     if (playerList.length !== 8) {
       alert("8명의 플레이어를 입력해주세요.");
       return;
     }
 
-    try {
-      console.log("📡 fetchPlayerInfo 호출 전");
-      const playerData = await fetchPlayerInfo(playerList);
-      console.log("📬 fetchPlayerInfo 응답:", playerData);
+    const parsedPlayers = parsePlayersInput(players); // ✅ 변경된 부분
 
-      if (!Array.isArray(playerData) || playerData.length !== 8) {
-        console.warn("⚠️ 예상한 8명의 데이터를 받지 못했습니다:", playerData);
+    for (const p of playerList) {
+      parsedPlayers[p] = selectedClasses[p] || [];
+    }
+
+    const playerData = await fetchPlayerInfo(playerList);
+    if (!checkClassDistribution(playerData)) return;
+    const enrichedPlayerData = calculateEffectiveMMR(playerData, parsedPlayers);
+    const sorted = enrichedPlayerData.sort((a, b) => b.effectiveMMR - a.effectiveMMR);
+
+    console.log("📊 정렬된 플레이어 MMR:", sorted.map(p => ({ username: p.username, mmr: p.effectiveMMR })));
+
+    if (teamMode === "default") {
+      runInitialTeamGeneration(sorted, parsedPlayers);
+    } else if (teamMode === "rematch") {
+      runRematchWithSwap(sorted, parsedPlayers);
+    }
+  };
+
+  const runInitialTeamGeneration = (sorted, parsedPlayers) => {
+    console.log("🚀 초기 팀 생성 모드 시작");
+    const topHalf = sorted.slice(0, 4);
+    const bottomHalf = sorted.slice(4, 8);
+
+    const getRandomSamples = (arr, n) => {
+      const copy = [...arr];
+      const result = [];
+      for (let i = 0; i < n; i++) {
+        const idx = Math.floor(Math.random() * copy.length);
+        result.push(copy.splice(idx, 1)[0]);
       }
+      return result;
+    };
 
-      if (!checkClassDistribution(playerData)) {
-        return; // 클래스 분포가 부족하면 더 진행하지 않음
-      }
+    let attempt = 0;
+    const maxAttempts = 10;
+    let success = false;
 
-      const enrichedPlayerData = calculateEffectiveMMR(playerData, parsedPlayers);
+    while (attempt < maxAttempts && !success) {
+      const team1Data = [...getRandomSamples(topHalf, 2), ...getRandomSamples(bottomHalf, 2)];
+      const team1Usernames = new Set(team1Data.map(p => p.username));
+      const team2Data = sorted.filter(p => !team1Usernames.has(p.username));
 
-      console.log("📊 MMR 정렬 전 데이터:", enrichedPlayerData.map(p => ({
-        username: p.username,
-        effectiveMMR: p.effectiveMMR,
-      })));
+      const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
+      const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
 
-      const sorted = enrichedPlayerData.sort((a, b) => b.effectiveMMR - a.effectiveMMR);
-
-      console.log("📊 정렬 후 데이터:", enrichedPlayerData.map(p => ({
-        username: p.username,
-        effectiveMMR: p.effectiveMMR,
-      })));
-
-      // 3. 상위 4명 중 2명, 하위 4명 중 2명 선택
-      const topHalf = sorted.slice(0, 4);
-      const bottomHalf = sorted.slice(4, 8); // 총 8명 기준
-
-      const getRandomSamples = (arr, n) => {
-        const copy = [...arr];
-        const result = [];
-        for (let i = 0; i < n; i++) {
-          const idx = Math.floor(Math.random() * copy.length);
-          result.push(copy.splice(idx, 1)[0]);
-        }
-        return result;
+      const avgMMR = (team) => {
+        if (!team || team.length === 0) return 0;
+        const mmrs = team.map(p => p.effectiveMMR).filter(m => typeof m === "number" && !isNaN(m));
+        return mmrs.length > 0 ? Math.round(mmrs.reduce((a, b) => a + b, 0) / mmrs.length) : 0;
       };
 
-      let attempt = 0;
-      const maxAttempts = 10;
-      let success = false;
+      console.log(`🔁 시도 ${attempt + 1} - 초기 팀 배정:`, {
+        team1: team1Assigned?.map(p => ({ username: p.username, mmr: p.effectiveMMR })),
+        team2: team2Assigned?.map(p => ({ username: p.username, mmr: p.effectiveMMR })),
+        team1AvgMMR: avgMMR(team1Assigned || []),
+        team2AvgMMR: avgMMR(team2Assigned || []),
+      });
 
-      while (attempt < maxAttempts && !success) {
-        console.log(`🔁 [시도 ${attempt + 1}] 팀 배정 시작`);
+      if (team1Assigned && team2Assigned) {
+        setTeamA(team1Assigned);
+        setTeamB(team2Assigned);
+        setInitialTeamA(team1Assigned);
+        setInitialTeamB(team2Assigned);
+        setTeamAScore(0);
+        setTeamBScore(0);
+        setPreviousTeamMap(
+          Object.fromEntries([
+            ...team1Assigned.map(p => [p.username, "A"]),
+            ...team2Assigned.map(p => [p.username, "B"]),
+          ])
+        );
+        setTeamMode("rematch");
+        setTimeout(() => {
+          setTeamsGenerated(true);
+          playSound("victory.mp3");
+        }, TOTAL_SLOT_TIME);
+        success = true;
+      }
+      attempt++;
+    }
+  };
 
-        const team1Top = getRandomSamples(topHalf, 2);
-        const team1Bottom = getRandomSamples(bottomHalf, 2);
-        const team1Data = [...team1Top, ...team1Bottom];
-        const team1Usernames = new Set(team1Data.map(p => p.username));
-        const team2Data = sorted.filter(p => !team1Usernames.has(p.username));
+  const runRematchWithSwap = (sorted, parsedPlayers) => {
+    console.log("🔁 리매치 모드 시작 – 기존 팀 상태:", previousTeamMap);
+    const topHalf = sorted.slice(0, 4);
+    const bottomHalf = sorted.slice(4, 8);
 
-        console.log("🔎 팀1 후보:", team1Data.map(p => p.username));
-        console.log("🔎 팀2 후보:", team2Data.map(p => p.username));
+    const getRandomSamples = (arr, n) => {
+      const copy = [...arr];
+      const result = [];
+      for (let i = 0; i < n; i++) {
+        const idx = Math.floor(Math.random() * copy.length);
+        result.push(copy.splice(idx, 1)[0]);
+      }
+      return result;
+    };
 
-        const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
-        const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
+    const countMatches = (team, label) =>
+      team.filter(p => previousTeamMap[p.username] === label).length;
 
-        if (team1Assigned && team2Assigned) {
-          console.log("✅ 팀 배정 성공!");
+    let attempt = 0;
+    const maxAttempts = 20;
+    let success = false;
+
+    while (attempt < maxAttempts && !success) {
+      const team1Data = [...getRandomSamples(topHalf, 2), ...getRandomSamples(bottomHalf, 2)];
+      const team1Usernames = new Set(team1Data.map(p => p.username));
+      const team2Data = sorted.filter(p => !team1Usernames.has(p.username));
+
+      const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
+      const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
+
+      const avgMMR = (team) => {
+        if (!team || team.length === 0) return 0;
+        const mmrs = team.map(p => p.effectiveMMR).filter(m => typeof m === "number" && !isNaN(m));
+        return mmrs.length > 0 ? Math.round(mmrs.reduce((a, b) => a + b, 0) / mmrs.length) : 0;
+      };
+
+      console.log(`🔁 시도 ${attempt + 1} - 리매치 배정:`, {
+        team1: team1Assigned?.map(p => ({ username: p.username, mmr: p.effectiveMMR })),
+        team2: team2Assigned?.map(p => ({ username: p.username, mmr: p.effectiveMMR })),
+        team1AvgMMR: avgMMR(team1Assigned || []),
+        team2AvgMMR: avgMMR(team2Assigned || []),
+      });
+
+      if (team1Assigned && team2Assigned) {
+        const valid =
+          countMatches(team1Assigned, "A") === 2 &&
+          countMatches(team2Assigned, "B") === 2;
+
+        if (valid) {
           setTeamA(team1Assigned);
           setTeamB(team2Assigned);
           setInitialTeamA(team1Assigned);
           setInitialTeamB(team2Assigned);
-          success = true;
-
+          setTeamAScore(0);
+          setTeamBScore(0);
           setTimeout(() => {
-            setTeamsGenerated(true); // 팀 표시용 드롭다운으로 변경
+            setTeamsGenerated(true);
             playSound("victory.mp3");
-          }, TOTAL_SLOT_TIME); // 2.5초 뒤에 전환 (슬롯 애니메이션 종료 시점)
+          }, TOTAL_SLOT_TIME);
+          success = true;
         } else {
-          console.warn("❌ 클래스 배정 실패. 다음 조합으로 재시도.");
+          console.log("⚠️ 조건 불충족 – 팀 구성 유지 안 됨");
         }
-
-        attempt++;
       }
-
-      if (!success) {
-        alert("🚨 유효한 클래스 배정을 찾지 못했습니다. 유저들의 클래스 정보를 확인해주세요.");
-      }
-
-    } catch (error) {
-      console.error("🚨 유저 데이터 요청 중 오류 발생:", error);
-      alert("🚨 유저 데이터를 가져오지 못했습니다: " + error.message);
+      attempt++;
     }
 
+    if (!success) {
+      alert("⚠️ 조건을 만족하는 새로운 조합을 찾지 못했습니다. 다시 시도해 주세요.");
+    }
   };
+
+  function assignPlayerRoles(team, parsedPlayers) {
+    const positions = ["드", "어", "넥", "슴"];
+    const assigned = [];
+    const used = new Set();
+
+    for (let i = positions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
+
+    console.log("🔄 [클래스 랜덤] 1회차:", positions); // 예: ["넥", "드", "슴", "어"]
+
+    for (let i = positions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
+
+    console.log("🔄 [클래스 랜덤] 2회차:", positions); // 예: ["넥", "드", "슴", "어"]
+
+    for (let i = positions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
+
+    console.log("🔄 [클래스 랜덤] 3회차:", positions); // 예: ["넥", "드", "슴", "어"]
+
+    console.log("🔄 [클래스 배정 시작] 팀:", team.map(p => p.username));
+    console.log("📌 [사용자 지정 클래스]:", parsedPlayers);
+
+    // 1. 사용자 지정 클래스 중에서 단일 지정 우선 배정
+    for (const pos of positions) {
+      for (const player of team) {
+        const username = player.username;
+        if (used.has(username)) continue;
+
+        const preferred = parsedPlayers[username];
+
+        // 🎯 지정 클래스가 딱 하나일 때만 우선 배정
+        if (preferred && preferred.length === 1 && preferred[0] === pos) {
+          assigned.push({ ...player, class: pos });
+          used.add(username);
+          console.log(`🔒 [단일 지정 클래스 고정] ${username} → ${pos}`);
+          break;
+        }
+      }
+    }
+
+    // 1. 사용자 지정 클래스 우선 배정
+    for (const pos of positions) {
+      for (const player of team) {
+        const username = player.username;
+        if (used.has(username)) continue;
+
+        const preferred = parsedPlayers[username];
+        if (preferred && preferred.includes(pos)) {
+          assigned.push({ ...player, class: pos });
+          used.add(username);
+          console.log(`✅ [지정 클래스 배정] ${username} → ${pos}`);
+          break;
+        }
+      }
+    }
+
+    // 2. 나머지는 가능한 포지션으로 자동 배정
+    for (const pos of positions) {
+      if (assigned.some(p => p.class === pos)) continue;
+
+      const candidates = team.filter(p => {
+        const username = p.username;
+        if (used.has(username)) return false;
+        const available = p.class.split(", ").map(c => c.trim());
+        return available.includes(pos);
+      });
+
+      if (candidates.length > 0) {
+        const randomPick = candidates[Math.floor(Math.random() * candidates.length)];
+        assigned.push({ ...randomPick, class: pos });
+        used.add(randomPick.username);
+        console.log(`🌀 [자동 클래스 배정] ${randomPick.username} → ${pos}`);
+      } else {
+        console.warn(`⚠️ [포지션 미배정] ${pos}에 배정 가능한 유저 없음`);
+        return null; // ⚠️ 배정 실패
+      }
+    }
+
+    // 3. 드 → 어 → 넥 → 슴 순 정렬
+    const positionOrder = { "드": 0, "어": 1, "넥": 2, "슴": 3 };
+    assigned.sort((a, b) => positionOrder[a.class] - positionOrder[b.class]);
+
+    console.log("✅ [최종 클래스 배정 결과]", assigned);
+    return assigned;
+  }
+
+  const [lastPlayerList, setLastPlayerList] = useState([]);
+
+  useEffect(() => {
+    const currentList = players
+      .replace(/\([^)]*\)/g, "")
+      .split(',')
+      .map(n => n.trim())
+      .filter(n => n);
+
+    if (lastPlayerList.length === 8 && currentList.length === 8) {
+      const isSame = currentList.every(name => lastPlayerList.includes(name));
+      if (!isSame) {
+        console.log("🔄 유저 목록 변경 감지됨. 초기화 수행");
+        setTeamMode("default");
+        setPreviousTeamMap({});
+      }
+    }
+
+    setLastPlayerList(currentList);
+  }, [players]);
+
+  const getDropdownBgClass = (username) => {
+    if (previousTeamMap[username] === "A") return "bg-red-900";
+    if (previousTeamMap[username] === "B") return "bg-blue-900";
+    return "";
+  };
+
 
 
   return (
@@ -483,7 +574,26 @@ export default function TeamPage() {
             {playerCount} </span>
           / 8명)
         </h1>
-        <div className="flex items-center mr-[-5px] mb-4">
+        <div className="flex items-center mr-[120px] mb-4">
+          <button
+            onMouseDown={() => setIsGuideButtonPressed(true)}
+            onMouseUp={() => setIsGuideButtonPressed(false)}
+            onMouseLeave={() => setIsGuideButtonPressed(false)}
+            onClick={() => setShowGuide(true)}
+            className="mb-6 w-[115px] h-[90px] mr-[10px]"
+          >
+            <Image
+              src={
+                isGuideButtonPressed
+                  ? "/icons/buttons/guide_pressed.png" // 두 번째 이미지
+                  : "/icons/buttons/guide_default.png" // 첫 번째 이미지
+              }
+              alt="사용법"
+              width={200}
+              height={200}
+            />
+          </button>
+
           <button
             onMouseDown={() => setIsClassButtonPressed(true)}
             onMouseUp={() => setIsClassButtonPressed(false)}
@@ -547,6 +657,18 @@ export default function TeamPage() {
                   setPlayers("");
                   setConfirmState("default");
                   setShowClassPanel(false); // 👉 사이드 패널도 닫기
+
+                  // ✅ 팀 관련 상태 초기화
+                  setTeamA([]);
+                  setTeamB([]);
+                  setInitialTeamA([]);
+                  setInitialTeamB([]);
+                  setTeamAScore(0);
+                  setTeamBScore(0);
+                  setTeamsGenerated(false);
+                  setTeamMode("default");
+                  setPreviousTeamMap({});
+                  setLastPlayerList([]);
                 }}
                 className="absolute left-[85%] top-1/2 transform -translate-y-1/2 text-white hover:text-red-400 text-xl"
                 title="입력 지우기"
@@ -579,19 +701,26 @@ export default function TeamPage() {
               className={!isReady ? "opacity-60" : "opacity-100"}
             />
           </button>
-          <button onClick={() => {
-            setIsCopyResultPressed(true);
+          <button
+            onClick={() => {
+              setIsCopyResultPressed(true);
+              playSound("alert.mp3");
 
-            playSound("alert.mp3");
+              setTimeout(() => {
+                copyTeamResult(teamA, teamB); // 복사 + alert
+                // ✅ 팀 색깔 업데이트
+                setPreviousTeamMap(
+                  Object.fromEntries([
+                    ...teamA.map(p => [p.username, "A"]),
+                    ...teamB.map(p => [p.username, "B"]),
+                  ])
+                );
+              }, 1000);
 
-            // ⚡ 복사 + alert 살짝 딜레이
-            setTimeout(() => {
-              copyTeamResult(teamA, teamB); // 내부에서 alert 호출
-            }, 1000);
-
-            // 이미지 복원은 1.5초 후
-            setTimeout(() => setIsCopyResultPressed(false), 500);
-          }} className="mb-6 ml-[10px]">
+              setTimeout(() => setIsCopyResultPressed(false), 500);
+            }}
+            className="mb-6 ml-[10px]"
+          >
             <Image
               src={isCopyResultPressed ? "/icons/buttons/copy_result_pressed.png" : "/icons/buttons/copy_result.png"}
               alt="생성결과 복사"
@@ -599,6 +728,7 @@ export default function TeamPage() {
               height={20}
             />
           </button>
+
         </div>
 
         {/* 즐겨찾기 영역 (배경 이미지 + 버튼 오버레이) */}
@@ -650,7 +780,7 @@ export default function TeamPage() {
             {/* 팀 A */}
             <div className="grid grid-cols-4 gap-4 mt-23">
               {teamA.map((player, index) => (
-                <div key={index} className="p-2 bg-opacity-100 w-18 h-10 flex items-center justify-center">
+                <div key={index} className={`p-2 w-18 h-10 flex items-center justify-center rounded ${getDropdownBgClass(player.username)}`}>
                   {!teamsGenerated ? (
                     <Slot
                       nameList={teamA.map(p => p.username)} // 8명 중 랜덤 선택
@@ -708,7 +838,7 @@ export default function TeamPage() {
             {/* 팀 B */}
             <div className="grid grid-cols-4 gap-4 mt-23">
               {teamB.map((player, index) => (
-                <div key={index} className="p-2 bg-opacity-100 w-18 h-10 flex items-center justify-center">
+                <div key={index} className={`p-2 w-18 h-10 flex items-center justify-center rounded ${getDropdownBgClass(player.username)}`}>
                   {!teamsGenerated ? (
                     <Slot
                       nameList={teamB.map(p => p.username)} // 8명 중 랜덤 선택
@@ -738,27 +868,36 @@ export default function TeamPage() {
             </div>
           </div>
         </div>
-
         {/* 하단 버튼 영역 */}
-        <div className="flex justify-center mt-8" onClick={() => {
-          setIsCopyMatchPressed(true);
+        <div
+          className="flex justify-center mt-8"
+          onClick={() => {
+            setIsCopyMatchPressed(true); // 💡 항상 딸깍 효과는 먼저 들어가고
 
-          playSound("alert.mp3");
+            playSound("alert.mp3");
 
-          // ⚡ alert() 호출을 100ms 뒤로 지연
-          setTimeout(() => {
-            handleCopyMatchResult(); // 내부에서 alert 발생
-          }, 1000);
+            setTimeout(() => {
+              if (teamAScore === 0 && teamBScore === 0) {
+                alert("⚠️ 경기 결과가 없습니다!\n점수를 입력한 후 복사해주세요.");
+              } else {
+                handleCopyMatchResult();
+              }
+            }, 1000);
 
-          setTimeout(() => setIsCopyMatchPressed(false), 500);
-        }}>
+            setTimeout(() => setIsCopyMatchPressed(false), 500);
+          }}
+        >
           <button className="w-48 h-12">
             <Image
-              src={isCopyMatchPressed ? "/icons/buttons/copy_match_pressed.png" : "/icons/buttons/copy_match.png"}
+              src={
+                isCopyMatchPressed
+                  ? "/icons/buttons/copy_match_pressed.png"
+                  : "/icons/buttons/copy_match.png"
+              }
               alt="경기결과 복사"
               width={192}
               height={48}
-              style={{ height: "auto" }} // ✅ 비율 유지 
+              style={{ height: "auto" }}
             />
           </button>
         </div>
@@ -835,6 +974,23 @@ export default function TeamPage() {
                 width={100}
                 height={30}
               />
+            </button>
+          </div>
+        </div>
+      )}
+      {showGuide && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center">
+          <div className="relative">
+            <img
+              src="/team_manual.png" // 업로드한 매뉴얼 이미지 경로
+              alt="사용법 매뉴얼"
+              className="max-w-[90vw] max-h-[90vh] rounded-lg"
+            />
+            <button
+              onClick={() => setShowGuide(false)}
+              className="absolute top-2 right-2 text-white text-2xl bg-black bg-opacity-60 px-2 py-1 rounded hover:text-red-400"
+            >
+              ✕
             </button>
           </div>
         </div>
