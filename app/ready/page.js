@@ -872,15 +872,24 @@ export default function TeamPage() {
         <div
           className="flex justify-center mt-8"
           onClick={() => {
-            setIsCopyMatchPressed(true); // 💡 항상 딸깍 효과는 먼저 들어가고
+            setIsCopyMatchPressed(true); // 💡 클릭 효과
 
             playSound("alert.mp3");
 
             setTimeout(() => {
+              const total = teamAScore + teamBScore;
+
+              // ✅ 예외처리
               if (teamAScore === 0 && teamBScore === 0) {
                 alert("⚠️ 경기 결과가 없습니다!\n점수를 입력한 후 복사해주세요.");
+              } else if (
+                (teamAScore !== 5 && teamBScore !== 5) || // 둘 중 하나는 반드시 5
+                teamAScore === 5 && teamBScore === 5 ||   // 무승부 ❌
+                total > 9                                 // 최대 9경기
+              ) {
+                alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 5점이어야 하고, 최대 점수는 5:4입니다.");
               } else {
-                handleCopyMatchResult();
+                handleCopyMatchResult(); // ✅ 정상 복사
               }
             }, 1000);
 
