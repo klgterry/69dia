@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxyk6ot4kORz9786XchFf5JDWpYqH6J4Mt1hxYpD_eYD2_CmuWbj4ToWoqR8wAixD7c/exec"; // ✅ 실제 GAS 배포 URL
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL;
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
