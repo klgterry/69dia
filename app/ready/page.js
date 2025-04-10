@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Slot from "@/components/Slot";
+import { ClipLoader } from "react-spinners";
 
 
 async function fetchLeaderboard() {
@@ -32,6 +33,11 @@ async function fetchPlayerInfo(players) {
   return data.players;
 }
 
+async function fetchRegisterPassword() {
+  const res = await fetch("/api/gasApi?action=getRegisterPassword");
+  const data = await res.json();
+  return data.password;
+}
 
 function parsePlayersInput(inputString) {
   const parsed = {};
@@ -195,8 +201,18 @@ export default function TeamPage() {
   const isReady = playerCount === 8;
   const [isGuideButtonPressed, setIsGuideButtonPressed] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+  const [inputPassword, setInputPassword] = useState("");
+  const [correctPassword, setCorrectPassword] = useState("");
+  const [isPasswordError, setIsPasswordError] = useState(false);
+  const [isConfirmPhase, setIsConfirmPhase] = useState(false);
+  const [isRegisterPressed, setIsRegisterPressed] = useState(false); // 클릭 효과
+  const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 팝업 표시 여부
+  const [inputSubmittedBy, setInputSubmittedBy] = useState(""); // 등록자명
+  const [isRegisterLoading, setRegisterLoading] = useState(false);
 
-
+    
   useEffect(() => {
     setIsTop10Loading(true);
     fetchLeaderboard().then(players => {
@@ -525,8 +541,65 @@ export default function TeamPage() {
     return "";
   };
 
+  useEffect(() => {
+    if (showRegisterPopup) {
+      fetchRegisterPassword().then(setCorrectPassword);
+    }
+  }, [showRegisterPopup]);
 
+  const handlePasswordSubmit = () => {
+    if (inputPassword === correctPassword) {
+      setIsPasswordError(false);
+      setIsConfirmPhase(true);
+    } else {
+      setIsPasswordError(true);
+    }
+  };
+  
+  const handleRegister = async () => {
+    try {
+      setRegisterLoading(true); // ⏳ 등록 중 표시
+  
+      const payload = {
+        action: "registerResult",
+        game_number: new Date().toISOString().replace(/[-T:.Z]/g, "").slice(2, 14),
+        winners: teamA.map(p => p.username),
+        losers: teamB.map(p => p.username),
+        win_score: teamAScore,
+        lose_score: teamBScore,
+        submitted_by: inputSubmittedBy || "웹 사용자", // 입력된 등록자명
+      };
+  
+      const res = await fetch("/api/gasApi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+  
+      const result = await res.json(); // ✅ ✅ 한 번만 호출 (중복 제거)
+  
+      if (res.ok) {
+        if (result.success) {
+          alert("✅ 경기 결과가 성공적으로 등록되었습니다!");
+          playSound("victory.mp3");
+        } else {
+          alert(`🚨 등록 실패: ${result.error || "알 수 없는 오류"}`);
+        }
+      } else {
+        alert("🚨 서버 오류로 등록에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("❌ 등록 중 예외 발생:", error);
+      alert("🚨 네트워크 오류 또는 서버 응답 없음");
+    } finally {
+      // ✅ 항상 팝업 닫고 로딩/상태 초기화
+      setRegisterLoading(false);
+      setShowRegisterPopup(false);
+      setIsConfirmPhase(false);
+    }
+  };
 
+  
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       {/* 네비게이션 바 */}
@@ -869,34 +942,33 @@ export default function TeamPage() {
           </div>
         </div>
         {/* 하단 버튼 영역 */}
-        <div
-          className="flex justify-center mt-8"
-          onClick={() => {
-            setIsCopyMatchPressed(true); // 💡 클릭 효과
+        <div className="flex justify-center mt-8 gap-4">
+          {/* 🟢 경기결과 복사 버튼 */}
+          <button
+            className="w-48 h-12"
+            onClick={() => {
+              setIsCopyMatchPressed(true);
+              playSound("alert.mp3");
 
-            playSound("alert.mp3");
+              setTimeout(() => {
+                const total = teamAScore + teamBScore;
 
-            setTimeout(() => {
-              const total = teamAScore + teamBScore;
+                if (teamAScore === 0 && teamBScore === 0) {
+                  alert("⚠️ 경기 결과가 없습니다!\n점수를 입력한 후 복사해주세요.");
+                } else if (
+                  (teamAScore !== 5 && teamBScore !== 5) || // 승자 5점 아니면 오류
+                  (teamAScore === 5 && teamBScore === 5) || // 무승부 ❌
+                  total > 9
+                ) {
+                  alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 5점이어야 하고, 최대 점수는 5:4입니다.");
+                } else {
+                  handleCopyMatchResult();
+                }
+              }, 1000);
 
-              // ✅ 예외처리
-              if (teamAScore === 0 && teamBScore === 0) {
-                alert("⚠️ 경기 결과가 없습니다!\n점수를 입력한 후 복사해주세요.");
-              } else if (
-                (teamAScore !== 5 && teamBScore !== 5) || // 둘 중 하나는 반드시 5
-                teamAScore === 5 && teamBScore === 5 ||   // 무승부 ❌
-                total > 9                                 // 최대 9경기
-              ) {
-                alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 5점이어야 하고, 최대 점수는 5:4입니다.");
-              } else {
-                handleCopyMatchResult(); // ✅ 정상 복사
-              }
-            }, 1000);
-
-            setTimeout(() => setIsCopyMatchPressed(false), 500);
-          }}
-        >
-          <button className="w-48 h-12">
+              setTimeout(() => setIsCopyMatchPressed(false), 500);
+            }}
+          >
             <Image
               src={
                 isCopyMatchPressed
@@ -909,7 +981,124 @@ export default function TeamPage() {
               style={{ height: "auto" }}
             />
           </button>
+
+          {/* 🟣 결과 등록 버튼 */}
+          <button
+            className="w-48 h-12"
+            onClick={() => {
+              setIsRegisterPressed(true);
+              playSound("alert.mp3");
+              setShowRegisterPopup(true);
+              setTimeout(() => setIsRegisterPressed(false), 500);
+            }}
+          >
+            <Image
+              src={
+                isRegisterPressed
+                  ? "/icons/buttons/결과등록2.png"
+                  : "/icons/buttons/결과등록1.png"
+              }
+              alt="결과 등록"
+              width={192}
+              height={48}
+              style={{ height: "auto" }}
+            />
+          </button>
         </div>
+        {/* ✅ (1) 비밀번호 입력 팝업 */}
+        {showRegisterPopup && (
+  <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 z-50 flex items-center justify-center">
+    <div className="bg-gray-900 text-white p-6 rounded-lg shadow-lg w-[420px]">
+      {!isConfirmPhase ? (
+        <>
+          <h2 className="text-2xl font-bold mb-4 text-white">🔐 결과 등록 비밀번호</h2>
+          <input
+            type="password"
+            value={inputPassword}
+            onChange={(e) => setInputPassword(e.target.value)}
+            className="w-full px-3 py-2 border rounded bg-gray-800 text-white placeholder-gray-400"
+            placeholder="비밀번호 입력"
+          />
+          {isPasswordError && (
+            <p className="text-red-400 text-sm mt-2">❌ 비밀번호가 틀렸습니다.</p>
+          )}
+          <div className="flex justify-end gap-4 mt-4">
+            <button
+              onClick={() => {
+                setShowRegisterPopup(false);
+                setInputPassword("");
+                setIsPasswordError(false);
+              }}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
+            >
+              취소
+            </button>
+            <button
+              onClick={handlePasswordSubmit}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
+            >
+              확인
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <h2 className="text-2xl font-bold mb-4 text-white">📥 경기 결과를 등록할까요?</h2>
+          <p className="mb-4 text-sm text-gray-100 leading-relaxed">
+            <span className="font-bold text-green-400">승리팀({teamAScore}) :</span>{" "}
+            {teamA.map((p) => p.username).join("/")}<br />
+            <span className="font-bold text-red-400">패배팀({teamBScore}) :</span>{" "}
+            {teamB.map((p) => p.username).join("/")}
+          </p>
+
+          {/* ✅ 등록자명 입력 필드 */}
+          <h2 className="text-lg font-semibold mb-2 text-white">👤 등록자</h2>
+          <input
+            type="text"
+            value={inputSubmittedBy}
+            onChange={(e) => setInputSubmittedBy(e.target.value)}
+            className="w-full px-3 py-2 border rounded bg-gray-800 text-white placeholder-gray-400 mb-4"
+            placeholder="등록자를 입력하세요"
+          />
+
+<div className="flex justify-end gap-4 mt-4">
+  <button
+    onClick={() => {
+      setShowRegisterPopup(false);
+      setIsConfirmPhase(false);
+    }}
+    className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-400"
+  >
+    취소
+  </button>
+  <button
+    onClick={async () => {
+      setRegisterLoading(true);
+      await handleRegister();
+      setRegisterLoading(false);
+      setShowRegisterPopup(false);
+      setIsConfirmPhase(false);
+    }}
+    disabled={isRegisterLoading || !inputSubmittedBy.trim()} // ← 등록자명이 없으면 비활성화
+    className={`px-4 py-2 flex items-center justify-center text-white rounded ${
+      isRegisterLoading ? "bg-gray-600 cursor-not-allowed" : "bg-green-600 hover:bg-green-500"
+    }`}
+  >
+    {isRegisterLoading ? (
+      <ClipLoader size={20} color="#fff" />
+    ) : (
+      "✅ 등록하기"
+    )}
+  </button>
+</div>
+
+        </>
+      )}
+    </div>
+  </div>
+)}
+
+
       </div>
       {showClassPanel && (
         <div className="fixed top-[175px] left-45 h-[calc(100%-72px)] w-[350px] text-white z-50 shadow-lg p-6 overflow-y-auto" style={{

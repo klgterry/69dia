@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbykbX8vsvwIJlzq-F7Yk2bv5ZB2pHBg986xASsITj5rK7tgrXnLyF7XChKGNRDZntxE/exec"; // ✅ 실제 GAS 배포 URL
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxyk6ot4kORz9786XchFf5JDWpYqH6J4Mt1hxYpD_eYD2_CmuWbj4ToWoqR8wAixD7c/exec"; // ✅ 실제 GAS 배포 URL
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
@@ -29,14 +29,13 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const body = await req.json();
-  const { action, players } = body;
-
   try {
+    const body = await req.json();  // 🔁 전체 JSON 그대로 GAS에 넘김
+
     const response = await fetch(GAS_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, players }),
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();
@@ -53,4 +52,5 @@ export async function POST(req) {
     });
   }
 }
+
 
