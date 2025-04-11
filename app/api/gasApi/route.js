@@ -1,5 +1,7 @@
 const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL;
 
+console.log("🌐 GAS_URL:", process.env.NEXT_PUBLIC_GAS_URL);
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const action = searchParams.get("action");

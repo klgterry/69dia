@@ -211,6 +211,7 @@ export default function TeamPage() {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 팝업 표시 여부
   const [inputSubmittedBy, setInputSubmittedBy] = useState(""); // 등록자명
   const [isRegisterLoading, setRegisterLoading] = useState(false);
+  const [gameNumber, setGameNumber] = useState("");
 
     
   useEffect(() => {
@@ -558,16 +559,19 @@ export default function TeamPage() {
   
   const handleRegister = async () => {
     try {
-      setRegisterLoading(true); // ⏳ 등록 중 표시
+      setRegisterLoading(true);
+  
+      const number = gameNumber || new Date().toISOString().replace(/[-T:.Z]/g, "").slice(2, 14);
+      if (!gameNumber) setGameNumber(number); // 최초 1회만 생성해서 저장
   
       const payload = {
         action: "registerResult",
-        game_number: new Date().toISOString().replace(/[-T:.Z]/g, "").slice(2, 14),
+        game_number: number,
         winners: teamA.map(p => p.username),
         losers: teamB.map(p => p.username),
         win_score: teamAScore,
         lose_score: teamBScore,
-        submitted_by: inputSubmittedBy || "웹 사용자", // 입력된 등록자명
+        submitted_by: inputSubmittedBy || "웹 사용자",
       };
   
       const res = await fetch("/api/gasApi", {
@@ -576,12 +580,13 @@ export default function TeamPage() {
         body: JSON.stringify(payload),
       });
   
-      const result = await res.json(); // ✅ ✅ 한 번만 호출 (중복 제거)
+      const result = await res.json();
   
       if (res.ok) {
         if (result.success) {
           alert("✅ 경기 결과가 성공적으로 등록되었습니다!");
           playSound("victory.mp3");
+          setGameNumber(""); // ✅ 성공 시 초기화
         } else {
           alert(`🚨 등록 실패: ${result.error || "알 수 없는 오류"}`);
         }
@@ -592,14 +597,12 @@ export default function TeamPage() {
       console.error("❌ 등록 중 예외 발생:", error);
       alert("🚨 네트워크 오류 또는 서버 응답 없음");
     } finally {
-      // ✅ 항상 팝업 닫고 로딩/상태 초기화
       setRegisterLoading(false);
       setShowRegisterPopup(false);
       setIsConfirmPhase(false);
     }
   };
 
-  
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       {/* 네비게이션 바 */}
@@ -988,8 +991,26 @@ export default function TeamPage() {
             onClick={() => {
               setIsRegisterPressed(true);
               playSound("alert.mp3");
-              setShowRegisterPopup(true);
-              setTimeout(() => setIsRegisterPressed(false), 500);
+
+              // ✅ 1초 후 점수 유효성 검사
+              setTimeout(() => {
+                const total = teamAScore + teamBScore;
+
+                if (teamAScore === 0 && teamBScore === 0) {
+                  alert("⚠️ 경기 결과가 없습니다!\n점수를 입력한 후 등록해주세요.");
+                } else if (
+                  (teamAScore !== 5 && teamBScore !== 5) || // 승리팀이 5점 아니면 ❌
+                  (teamAScore === 5 && teamBScore === 5) || // 무승부 ❌
+                  total > 9 // 최대 9점까지 허용
+                ) {
+                  alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 5점이어야 하고, 최대 점수는 5:4입니다.");
+                } else {
+                  // ✅ 점수 유효 → 팝업 오픈
+                  setShowRegisterPopup(true);
+                }
+
+                setIsRegisterPressed(false); // 딸깍 효과 복원
+              }, 1000);
             }}
           >
             <Image
