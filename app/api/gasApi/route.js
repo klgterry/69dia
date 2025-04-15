@@ -32,7 +32,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const body = await req.json();  // 🔁 전체 JSON 그대로 GAS에 넘김
+    const body = await req.json();
 
     const response = await fetch(GAS_URL, {
       method: "POST",
@@ -40,8 +40,10 @@ export async function POST(req) {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    console.log("✅ [POST] GAS 응답 데이터:", data);
+    const text = await response.text(); // ← 먼저 문자열로
+    console.log("📄 응답 원문:", text);
+
+    const data = JSON.parse(text); // ← 직접 파싱
 
     return new Response(JSON.stringify(data), {
       headers: { "Content-Type": "application/json" },
@@ -54,5 +56,6 @@ export async function POST(req) {
     });
   }
 }
+
 
 
