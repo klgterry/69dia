@@ -14,12 +14,10 @@ async function fetchSeasonList() {
   return data;
 }
 
-async function fetchHistoryData() {
-  const response = await fetch("/api/gasApi?action=getHistoryData");
-  if (!response.ok) throw new Error("히스토리 데이터를 불러오지 못했습니다.");
-  const data = await response.json();
-  //console.log("📜 전체 히스토리:", data);
-  return data;
+async function fetchUserSummary() {
+  const response = await fetch("/api/gasApi?action=getUserSummary");
+  if (!response.ok) throw new Error("요약 데이터를 가져오지 못했습니다.");
+  return await response.json(); // [{ SEASON, PLAYER, TOTAL_WINS, TOTAL_RANK, D_WINS, D_RANK, ... }]
 }
 
 async function fetchSeasonPrevRank() {
@@ -28,150 +26,11 @@ async function fetchSeasonPrevRank() {
   return data; // [{ PLAYER: "야로", PrevRank: 20 }, ...]
 }
 
-// ✅ 날짜의 시간 요소를 제거 (오직 날짜만 비교용)
-function stripTime(date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-// ✅ 날짜 유효성 확인
-function isValidDate(d) {
-  return d instanceof Date && !isNaN(d.getTime());
-}
-
-// ✅ TIMESTAMP를 Safari 포함 모든 브라우저에서 파싱 가능하게
-function parseTimestampToDate(raw) {
-  if (!raw) return null;
-
-  // 이미 Date 객체면 그대로
-  if (raw instanceof Date) return raw;
-
-  // Safari 호환을 위해 '-' 사용 불가 시 '.'을 '/'로 바꿔줌
-  const isKoreanFormat = typeof raw === "string" && raw.includes("오전") || raw.includes("오후");
-
-  if (isKoreanFormat) {
-    try {
-      const matched = raw.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\s*(오전|오후)\s*(\d{1,2}):(\d{2}):(\d{2})$/);
-      if (!matched) {
-        return null;
-      }
-
-      let [_, year, month, day, ampm, hour, minute, second] = matched;
-      hour = parseInt(hour, 10);
-      if (ampm === "오후" && hour < 12) hour += 12;
-      if (ampm === "오전" && hour === 12) hour = 0;
-
-      const iso = `${year.padStart(4, "0")}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${String(hour).padStart(2, "0")}:${minute}:${second}`;
-      const parsed = new Date(iso);
-
-      if (isNaN(parsed.getTime())) {
-        return null;
-      }
-
-      return parsed;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // ISO 포맷은 그대로 Date 생성
-  try {
-    const parsed = new Date(raw);
-    if (isNaN(parsed.getTime())) {
-      return null;
-    }
-
-    return parsed;
-  } catch (e) {
-    return null;
-  }
-}
-
-
-function filterHistoryBySeason(historyData, selectedSeason) {
-  const start = stripTime(new Date(selectedSeason.START_TIME));
-  const end = stripTime(new Date(selectedSeason.END_TIME));
-
-  //console.log("🟩 시즌 범위:", start.toISOString(), "~", end.toISOString());
-
-  return historyData.filter(entry => {
-    const parsed = parseTimestampToDate(entry.TIMESTAMP);
-
-    if (!isValidDate(parsed)) {
-      console.warn("❌ Invalid TIMESTAMP:", entry.TIMESTAMP);
-      return false;
-    }
-
-    const dateOnly = stripTime(parsed);
-    const isInRange = dateOnly >= start && dateOnly <= end;
-
-    return isInRange;
-  });
-}
-
-
-function calculateRanking(filteredHistory) {
-  const stats = {}; // 플레이어별 데이터
-
-  filteredHistory.forEach((entry) => {
-    const username = entry.PLAYER;
-    const result = entry.RESULT;
-    const cls = entry.CLASS_USED;
-
-    if (!stats[username]) {
-      stats[username] = {
-        username,
-        wins: 0,
-        druidWins: 0,
-        oracleWins: 0,
-        necroWins: 0,
-        summonerWins: 0,
-      };
-    }
-
-    if (result === "WIN") {
-      stats[username].wins += 1;
-
-      // 클래스별 승수 추가
-      if (cls === "드") stats[username].druidWins += 1;
-      else if (cls === "어") stats[username].oracleWins += 1;
-      else if (cls === "넥") stats[username].necroWins += 1;
-      else if (cls === "슴") stats[username].summonerWins += 1;
-    }
-  });
-
-  // 객체 → 배열로 변환
-  let players = Object.values(stats);
-
-  // 정렬: 총 승수 내림차순, 동점 시 아이디 오름차순 (한글)
-  players.sort((a, b) => {
-    if (b.wins === a.wins) {
-      return a.username.localeCompare(b.username, "ko");
-    }
-    return b.wins - a.wins;
-  });
-
-  // 동순위 처리
-  let rank = 1;
-  for (let i = 0; i < players.length; i++) {
-    if (i > 0 && players[i].wins === players[i - 1].wins) {
-      players[i].rank = players[i - 1].rank;
-    } else {
-      players[i].rank = rank;
-    }
-    rank++;
-  }
-
-  return players;
-}
-
 export default function HomePage() {
-  const [season, setSeason] = useState("25년 3월 시즌");
   const [leaderboard, setLeaderboard] = useState([]);
   const [seasonList, setSeasonList] = useState([]);
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // ✅ 로딩 상태 별도 관리
-  const [showPopup, setShowPopup] = useState(false);
-
 
   const router = useRouter();
 
@@ -211,32 +70,44 @@ export default function HomePage() {
   }, []);
 
   const isCurrentSeason = selectedSeason?.TITLE === seasonList.at(-1)?.TITLE;
-
   
   useEffect(() => {
     if (!selectedSeason) return;
   
     setIsLoading(true);
   
-    Promise.all([fetchHistoryData(), fetchSeasonPrevRank()])
-      .then(([history, prevRankData]) => {
-        const filtered = filterHistoryBySeason(history, selectedSeason);
-        const ranked = calculateRanking(filtered);
+    Promise.all([fetchUserSummary(), fetchSeasonPrevRank()])
+      .then(([summary, prevRankList]) => {
+        const seasonUsers = summary.filter(user => user.SEASON === selectedSeason.TITLE);
   
-        // 🎯 prevRank 병합
-        const merged = ranked.map(player => {
-          const match = prevRankData.find(p => p.PLAYER === player.username);
+        // 병합: prevRank
+        const merged = seasonUsers.map(user => {
+          const prev = prevRankList.find(p => p.SEASON === user.SEASON && p.PLAYER === user.PLAYER);
           return {
-            ...player,
-            prevRank: match ? Number(match.PrevRank) : player.rank, // 기본값: 현재와 동일
+            username: user.PLAYER,
+            wins: Number(user.TOTAL_WINS),
+            druidWins: Number(user.D_WINS || 0),
+            oracleWins: Number(user.A_WINS || 0),
+            necroWins: Number(user.N_WINS || 0),
+            summonerWins: Number(user.S_WINS || 0),
+            rank: Number(user.TOTAL_RANK),
+            prevRank: prev ? Number(prev.PrevRank) : Number(user.TOTAL_RANK),
           };
+        });
+  
+        // 정렬: 승수 기준
+        merged.sort((a, b) => {
+          if (b.wins === a.wins) {
+            return a.username.localeCompare(b.username, "ko");
+          }
+          return b.wins - a.wins;
         });
   
         setLeaderboard(merged);
         setIsLoading(false);
       });
   }, [selectedSeason]);
-
+  
   // 👇 이건 .map() 위쪽에 추가해줘 (JSX 밖에서)
   const filteredPlayers = leaderboard.filter((player) => player.rank <= 20);
   const fiveWinsOrMore = filteredPlayers.filter((player) => player.wins >= 5);
