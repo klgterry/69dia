@@ -669,7 +669,7 @@ export default function TeamPage() {
           <button
             key={name}
             onClick={() => {
-              if (path === "/ready" || path === "/" || path === "/rule" || path === "/setting") {
+              if (path === "/ready" || path === "/" || path === "/rule" || path === "/setting" || path === "/user") {
                 router.push(path); // ✅ 실제로 이동
               } else {
                 alert("준비 중입니다."); // ✅ 알림만
