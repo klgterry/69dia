@@ -77,13 +77,11 @@ export default function HistoryPage() {
       {/* 타이틀 영역 */}
       <div className="text-center mt-4">
         <h1 className="text-3xl font-bold">📜 게임 이력</h1>
-        <p className="mt-2 text-gray-400">최근 10 경기 이력만 확인 가능합니다.</p>
+        <p className="mt-2 text-gray-400">최근 5 경기 이력만 확인 가능합니다.</p>
       </div>
 
       {/* 게임 이력 테이블 */}
-      <div className="mt-6 bg-gray-800 p-4 rounded-lg max-w-5xl mx-auto">
-        <h2 className="text-center text-xl mb-4">📊 최근 게임 이력</h2>
-        
+      <div className="mt-6 bg-gray-800 p-4 rounded-lg max-w-5xl mx-auto">       
         <table className="w-full mx-auto border-collapse border border-gray-700 text-center">
           <thead>
             <tr className="border-b border-gray-700">
