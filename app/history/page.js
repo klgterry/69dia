@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 // 클래스명 매핑 (Main 페이지와 동일한 아이콘 파일명 사용)
 const classIconMap = {
@@ -25,6 +26,7 @@ async function fetchGameHistory() {
 
 export default function HistoryPage() {
   const [gameHistory, setGameHistory] = useState([]);
+  const router = useRouter();
 
   useEffect(() => {
     fetchGameHistory()
@@ -39,11 +41,38 @@ export default function HistoryPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
       {/* 네비게이션 바 */}
-      <nav className="flex space-x-4 text-lg justify-start mb-4 ml-2">
-        <Link href="/" className="hover:underline">[Main]</Link>
-        <Link href="/history" className="hover:underline">[History]</Link>
-        <Link href="/user" className="hover:underline">[User]</Link>
-      </nav>
+      <nav className="flex justify-start items-center space-x-6 bg-gray-800 p-2 rounded-lg shadow-md text-lg font-bold tracking-widest pl-4">
+                {/* 로고 */}
+                <div className="relative w-12 h-12">
+                <Image src="/icons/logo.png" alt="Logo" fill className="object-contain" />
+                </div>
+                
+                {/* 네비게이션 버튼 */}
+                {[
+                  { name: "home", path: "/" },
+                  { name: "rule", path: "/rule" },
+                  { name: "setting", path: "/setting" },
+                  { name: "user", path: "/user" },
+                  { name: "history", path: "/history" },
+                  { name: "ready", path: "/ready" }
+                ].map(({ name, path }) => (
+                  <button
+                    key={name}
+                    onClick={() => {
+                      router.push(path); // ✅ 실제로 이동
+                    }}
+                    className="w-28 h-8 flex items-center justify-center md:w-36 md:h-10"
+                    style={{
+                      backgroundImage: `url('/icons/nav/${name}.png')`,
+                      backgroundSize: "contain",
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "center",
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}_hover.png')`}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}.png')`}
+                  />
+                ))}
+            </nav>
 
       {/* 타이틀 영역 */}
       <div className="text-center mt-4">
@@ -77,7 +106,9 @@ export default function HistoryPage() {
                         <div key={player.username} className="flex items-center space-x-2">
                           <Image 
                             src={`/icons/classes/${classIconMap[player.class]}.jpg`} 
-                            alt={player.class} 
+                            alt={player.class}
+                            width={32}
+                            height={32} 
                             className="w-8 h-8 object-cover rounded-none"
                           />
                           <span className="text-green-400 text-xs whitespace-nowrap">{player.username}</span>
@@ -96,7 +127,9 @@ export default function HistoryPage() {
                         <div key={player.username} className="flex items-center space-x-2">
                           <Image 
                             src={`/icons/classes/${classIconMap[player.class]}.jpg`} 
-                            alt={player.class} 
+                            alt={player.class}
+                            width={32}
+                            height={32} 
                             className="w-8 h-8 object-cover rounded-none"
                           />
                           <span className="text-red-400 text-xs whitespace-nowrap">{player.username}</span>
