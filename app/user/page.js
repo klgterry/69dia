@@ -120,6 +120,7 @@ export default function UserPage() {
   const [seasonStats, setSeasonStats] = useState(null);
   const [recentGamesRendered, setRecentGamesRendered] = useState(false);
   const [awardsRendered, setAwardsRendered] = useState(false);
+  const [allGames, setAllGames] = useState([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -284,12 +285,14 @@ export default function UserPage() {
     if (!selectedUser) return;
   
     fetchRecentGames().then((data) => {
-      const userGames = data
-        .filter(row => row.PLAYER === selectedUser)
-        .sort((a, b) => new Date(b.DATETIME) - new Date(a.DATETIME)) // 최신순 정렬
-        .slice(0, 5); // 최근 5게임만
+      const userGames = data.filter(row => row.PLAYER === selectedUser);
   
-      setRecentGames(userGames);
+      const recent = userGames
+        .sort((a, b) => new Date(b.DATETIME) - new Date(a.DATETIME))
+        .slice(0, 5);
+  
+      setRecentGames(recent);         // 최근 5게임만
+      setAllGames(userGames);         // 🔥 전체 게임도 저장
     });
   }, [selectedUser]); // ⛔ selectedSeason은 제외
 
@@ -467,7 +470,7 @@ export default function UserPage() {
               <div className="ml-0 -translate-x-35">
 
                 <UserStatsExtra
-                  recentGames={recentGames}
+                  recentGames={allGames}
                   summaryData={userSummaryData}
                   selectedUser={selectedUser}
                   selectedSeason={selectedSeason}
@@ -603,7 +606,7 @@ function UserSeasonStats({ username, seasonStats, isLoading, season, seasonList 
       {/* 헤더 */}
       <div className="grid grid-cols-[40px_60px_60px_30px] gap-x-4 mb-2">
         <div></div>
-        <div className="text-white font-bold text-lg pl-8">WIN</div>
+        <div className="text-white font-bold text-lg pl-5">WIN</div>
         <div className="text-white font-bold text-lg pl-3">RANK</div>
         <div></div>
       </div>
@@ -615,7 +618,7 @@ function UserSeasonStats({ username, seasonStats, isLoading, season, seasonList 
             cls.wins > 0 && (
               <div key={cls.key} className="contents">
                 <Image src={cls.icon} alt={cls.key} width={40} height={40} />
-                <div className="text-right">{cls.wins}</div>
+                <div className="text-right">{cls.wins}승</div>
                 <div className="text-right">{cls.rank}위</div>
                 {isAllSeason || !isSeasonOngoing ? (
                   <div className="w-[24px] h-[24px]" />
@@ -636,7 +639,7 @@ function UserSeasonStats({ username, seasonStats, isLoading, season, seasonList 
         {/* ALL 줄 출력 */}
         <div className="contents font-bold text-white mt-4">
           <div className="text-lg">ALL</div>
-          <div className="text-right text-2xl text-red-500">{wins}</div>
+          <div className="text-right text-2xl text-red-500">{wins}승</div>
           <div className="text-right text-2xl text-red-500">{rank}위</div>
           {!isAllSeason && isSeasonOngoing ? (
             <div className="relative w-[24px] h-[24px]">
@@ -835,25 +838,42 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
 function getMaxWinStreakWithSeason(games) {
   const streakBySeason = {};
 
+  // 1. 시즌별로 게임 모으기
   for (const game of games) {
     const season = game.SEASON;
     if (!streakBySeason[season]) {
       streakBySeason[season] = [];
     }
-    streakBySeason[season].push(game.RESULT);
+    streakBySeason[season].push(game);
   }
 
   let bestStreak = 0;
   let bestSeason = "";
 
   for (const season in streakBySeason) {
-    const results = streakBySeason[season];
+    // ✅ 2. 날짜순 정렬
+    const sortedGames = streakBySeason[season].sort(
+      (a, b) => new Date(a.DATETIME) - new Date(b.DATETIME)
+    );
+
+    // 디버깅용 출력
+    console.log(`📅 시즌: ${season}`);
+    sortedGames.forEach((g, i) => {
+      console.log(
+        `  ${i + 1}. ${g.DATETIME} | ${g.RESULT} | ${g.CLASS_USED}`
+      );
+    });
+
+    // 3. 연승 계산
     let max = 0, current = 0;
-    for (const res of results) {
-      if (res === "WIN") {
+    for (const game of sortedGames) {
+      if (game.RESULT === "WIN") {
         current++;
         max = Math.max(max, current);
       } else {
+        if (current > 0) {
+          console.log(`⚠️ 연승 끊김 (${current}연승 후) → ${game.DATETIME}`);
+        }
         current = 0;
       }
     }
@@ -864,17 +884,30 @@ function getMaxWinStreakWithSeason(games) {
     }
   }
 
+  console.log("🏆 시즌별 최다연승:", bestStreak, `(${bestSeason})`);
   return {
     winStreak: bestStreak,
     season: bestSeason,
   };
 }
 
-function getMaxWinStreak(games, selectedSeasonTitle) {
-  const filtered = selectedSeasonTitle === "ALL"
-    ? games
-    : games.filter(game => game.SEASON === selectedSeasonTitle);
 
+function getMaxWinStreak(games, selectedSeasonTitle) {
+  // 1. 시즌 필터링 + 정렬
+  const filtered = (selectedSeasonTitle === "ALL"
+    ? games
+    : games.filter(game => game.SEASON === selectedSeasonTitle)
+  ).sort((a, b) => new Date(a.DATETIME) - new Date(b.DATETIME));
+
+  console.log("📋 [getMaxWinStreak] 선택된 시즌:", selectedSeasonTitle);
+  console.log("🎮 필터링된 경기 목록:");
+  filtered.forEach((g, idx) => {
+    console.log(
+      `  ${idx + 1}. ${g.DATETIME} | ${g.RESULT} | ${g.CLASS_USED} | ${g.SEASON}`
+    );
+  });
+
+  // 2. 연승 계산
   let maxStreak = 0;
   let current = 0;
 
@@ -883,12 +916,15 @@ function getMaxWinStreak(games, selectedSeasonTitle) {
       current++;
       maxStreak = Math.max(maxStreak, current);
     } else {
+      console.log(`⚠️ 연승 끊김! (${current}연승 후) → ${game.DATETIME}`);
       current = 0;
     }
   }
 
+  console.log("🏆 최종 최대 연승:", maxStreak);
   return maxStreak;
 }
+
 
 function UserStatsExtra({ recentGames, summaryData, selectedUser, selectedSeason }) {
   const isAllSeason = selectedSeason?.TITLE === "ALL";
@@ -927,7 +963,6 @@ function UserStatsExtra({ recentGames, summaryData, selectedUser, selectedSeason
     </div>
   );
 }
-
 
 function getTopSeasonsByWins(summaryData, selectedUser) {
   return summaryData
