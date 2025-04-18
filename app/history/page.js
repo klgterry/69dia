@@ -75,21 +75,21 @@ export default function HistoryPage() {
       </nav>
       {/* 게임 이력 테이블 */}
       <div
-        className="relative w-[1380px] h-[500px] bg-center bg-no-repeat bg-contain p-6 rounded-lg mx-auto mt-10"
+        className="relative w-[900px] h-[400px] bg-center bg-no-repeat bg-contain p-6 rounded-lg mx-auto mt-10"
         style={{
           backgroundImage: "url('/icons/bg/recent_games_bg.png')", // ✅ 배경 이미지 적용
-          backgroundSize: "1380px 500px", // ✅ 너비와 높이를 명시
+          backgroundSize: "900px 400px", // ✅ 너비와 높이를 명시
         }}
       >
-        <h3 className="text-5xl font-bold text-white mb-4 text-center drop-shadow-sm mt-5">📜 최근 5경기 전체 이력</h3>
+        <h3 className="text-4xl font-bold text-white mb-4 text-center drop-shadow-sm mt-5">📜 최근 5경기 전체 이력</h3>
 
         <table className="w-full border-collapse border border-gray-700 text-center text-sm bg-transparent">
           <thead>
             <tr className="border-b border-gray-700">
-              <th className="p-2 text-white text-xl">게임 번호</th>
-              <th className="p-2 text-white text-xl">승리 팀</th>
-              <th className="p-2 text-white text-xl">VS</th>
-              <th className="p-2 text-white text-xl">패배 팀</th>
+              <th className="p-2 text-white text-sm">게임 번호</th>
+              <th className="p-2 text-white text-sm">승리 팀</th>
+              <th className="p-2 text-white text-sm">VS</th>
+              <th className="p-2 text-white text-sm">패배 팀</th>
             </tr>
           </thead>
           <tbody>
@@ -97,15 +97,15 @@ export default function HistoryPage() {
     gameHistory.map((game) => (
       <tr key={game.gameId} className="border-b border-gray-700">
         {/* 게임 번호 */}
-        <td className="p-2 text-gray-200 text-xl">{game.gameId}</td>
+        <td className="p-2 text-gray-200 text-sm">{game.gameId}</td>
 
         {/* ✅ 승리 팀 */}
-        <td className="p-2 pl-17">
+        <td className="p-2 pl-5">
           <div className="flex flex-wrap justify-start gap-x-4 min-w-[240px]">
             {game.winningPlayers.map((player) => (
               <div
                 key={player.username}
-                className="flex items-center gap-2 w-[100px]" // 👈 고정 너비로 수직 정렬 유지
+                className="flex items-center gap-2 w-[65px]" // 👈 고정 너비로 수직 정렬 유지
               >
                 <div className="relative w-6 h-6 shrink-0">
                   <Image
@@ -115,7 +115,7 @@ export default function HistoryPage() {
                     className="object-contain"
                   />
                 </div>
-                <span className="text-green-300 text-xl whitespace-nowrap">
+                <span className="text-green-300 text-sm whitespace-nowrap">
                   {player.username}
                 </span>
               </div>
@@ -124,15 +124,15 @@ export default function HistoryPage() {
         </td>
 
         {/* VS */}
-        <td className="p-2 font-bold text-white align-middle text-xl">VS</td>
+        <td className="p-2 font-bold text-white align-middle text-sm">VS</td>
 
         {/* ✅ 패배 팀 */}
-        <td className="p-2 pl-17">
+        <td className="p-2 pl-5">
           <div className="flex flex-wrap justify-start gap-x-4 min-w-[240px]">
             {game.losingPlayers.map((player) => (
               <div
                 key={player.username}
-                className="flex items-center gap-2 w-[100px]" // 👈 동일하게 정렬
+                className="flex items-center gap-2 w-[65px]" // 👈 동일하게 정렬
               >
                 <div className="relative w-6 h-6 shrink-0">
                   <Image
@@ -142,7 +142,7 @@ export default function HistoryPage() {
                     className="object-contain"
                   />
                 </div>
-                <span className="text-red-300 text-xl whitespace-nowrap">
+                <span className="text-red-300 text-sm whitespace-nowrap">
                   {player.username}
                 </span>
               </div>
