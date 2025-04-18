@@ -350,10 +350,12 @@ export default function UserPage() {
 
       {/* 유저 선택 버튼 */}
       <div className="overflow-x-auto whitespace-nowrap my-6 mx-auto">
+      <p className="text-center mt-10 text-gray-400">※ Total 5 게임 이상부터 조회 가능합니다.</p>
         {isUserListLoading ? (
           <p className="text-gray-400 text-sm text-center">🚀 유저 데이터를 불러오는 중입니다...</p>
         ) : (
           <div className="relative w-[824px] h-[100px] mx-auto my-6 rounded-lg p-4 bg-[#353f54]">
+             
             <div className="flex flex-wrap justify-left gap-1 w-full h-full items-center">
             {userList.map((user) => (
             <button
