@@ -63,7 +63,7 @@ export default function UserFullHistory({ selectedUser }) {
       }}
     >
       <h3 className="text-xl font-bold text-white mb-4 text-center drop-shadow-sm mt-3">
-        📜 <span className="text-yellow-300">{selectedUser}</span>의 최근 5경기 상세
+        📜 <span className="text-yellow-300">{selectedUser}</span>의 최근 경기 상세
       </h3>
 
       <div className="relative w-[780px] h-[100px] mx-auto mt-6">
