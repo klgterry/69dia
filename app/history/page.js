@@ -42,109 +42,128 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-gray-900 text-white p-4">
       {/* 네비게이션 바 */}
       <nav className="flex justify-start items-center space-x-6 bg-gray-800 p-2 rounded-lg shadow-md text-lg font-bold tracking-widest pl-4">
-                {/* 로고 */}
-                <div className="relative w-12 h-12">
-                <Image src="/icons/logo.png" alt="Logo" fill className="object-contain" />
-                </div>
-                
-                {/* 네비게이션 버튼 */}
-                {[
-                  { name: "home", path: "/" },
-                  { name: "rule", path: "/rule" },
-                  { name: "setting", path: "/setting" },
-                  { name: "user", path: "/user" },
-                  { name: "history", path: "/history" },
-                  { name: "ready", path: "/ready" }
-                ].map(({ name, path }) => (
-                  <button
-                    key={name}
-                    onClick={() => {
-                      router.push(path); // ✅ 실제로 이동
-                    }}
-                    className="w-28 h-8 flex items-center justify-center md:w-36 md:h-10"
-                    style={{
-                      backgroundImage: `url('/icons/nav/${name}.png')`,
-                      backgroundSize: "contain",
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "center",
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}_hover.png')`}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}.png')`}
-                  />
-                ))}
-            </nav>
-
-      {/* 타이틀 영역 */}
-      <div className="text-center mt-4">
-        <h1 className="text-3xl font-bold">📜 게임 이력</h1>
-        <p className="mt-2 text-gray-400">최근 5 경기 이력만 확인 가능합니다.</p>
-      </div>
-
+          {/* 로고 */}
+          <div className="relative w-12 h-12">
+          <Image src="/icons/logo.png" alt="Logo" fill className="object-contain" />
+          </div>
+          
+          {/* 네비게이션 버튼 */}
+          {[
+            { name: "home", path: "/" },
+            { name: "rule", path: "/rule" },
+            { name: "setting", path: "/setting" },
+            { name: "user", path: "/user" },
+            { name: "history", path: "/history" },
+            { name: "ready", path: "/ready" }
+          ].map(({ name, path }) => (
+            <button
+              key={name}
+              onClick={() => {
+                router.push(path); // ✅ 실제로 이동
+              }}
+              className="w-28 h-8 flex items-center justify-center md:w-36 md:h-10"
+              style={{
+                backgroundImage: `url('/icons/nav/${name}.png')`,
+                backgroundSize: "contain",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}_hover.png')`}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}.png')`}
+            />
+          ))}
+      </nav>
       {/* 게임 이력 테이블 */}
-      <div className="mt-6 bg-gray-800 p-4 rounded-lg max-w-5xl mx-auto">       
-        <table className="w-full mx-auto border-collapse border border-gray-700 text-center">
+      <div
+        className="relative w-[1380px] h-[500px] bg-center bg-no-repeat bg-contain p-6 rounded-lg mx-auto mt-10"
+        style={{
+          backgroundImage: "url('/icons/bg/recent_games_bg.png')", // ✅ 배경 이미지 적용
+          backgroundSize: "1380px 500px", // ✅ 너비와 높이를 명시
+        }}
+      >
+        <h3 className="text-5xl font-bold text-white mb-4 text-center drop-shadow-sm mt-5">📜 최근 5경기 전체 이력</h3>
+
+        <table className="w-full border-collapse border border-gray-700 text-center text-sm bg-transparent">
           <thead>
             <tr className="border-b border-gray-700">
-              <th className="p-2">게임 번호</th>
-              <th className="p-2">승리 팀</th>
-              <th className="p-2">VS</th>
-              <th className="p-2">패배 팀</th>
+              <th className="p-2 text-white text-xl">게임 번호</th>
+              <th className="p-2 text-white text-xl">승리 팀</th>
+              <th className="p-2 text-white text-xl">VS</th>
+              <th className="p-2 text-white text-xl">패배 팀</th>
             </tr>
           </thead>
           <tbody>
-            {gameHistory.length > 0 ? (
-              gameHistory.map((game) => (
-                <tr key={game.gameId} className="border-b border-gray-700">
-                  <td className="p-2 text-sm">{game.gameId}</td>
-                  
-                  {/* 승리 팀 */}
-                  <td className="p-2">
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {game.winningPlayers.map(player => (
-                        <div key={player.username} className="flex items-center space-x-2">
-                          <Image 
-                            src={`/icons/classes/${classIconMap[player.class]}.jpg`} 
-                            alt={player.class}
-                            width={32}
-                            height={32} 
-                            className="w-8 h-8 object-cover rounded-none"
-                          />
-                          <span className="text-green-400 text-xs whitespace-nowrap">{player.username}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  
-                  {/* VS */}
-                  <td className="p-2 font-bold text-white align-middle">VS</td>
-                  
-                  {/* 패배 팀 */}
-                  <td className="p-2">
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {game.losingPlayers.map(player => (
-                        <div key={player.username} className="flex items-center space-x-2">
-                          <Image 
-                            src={`/icons/classes/${classIconMap[player.class]}.jpg`} 
-                            alt={player.class}
-                            width={32}
-                            height={32} 
-                            className="w-8 h-8 object-cover rounded-none"
-                          />
-                          <span className="text-red-400 text-xs whitespace-nowrap">{player.username}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="4" className="text-center p-4">🚀 게임 이력을 불러오는 중...</td>
-              </tr>
-            )}
-          </tbody>
+  {gameHistory.length > 0 ? (
+    gameHistory.map((game) => (
+      <tr key={game.gameId} className="border-b border-gray-700">
+        {/* 게임 번호 */}
+        <td className="p-2 text-gray-200 text-xl">{game.gameId}</td>
+
+        {/* ✅ 승리 팀 */}
+        <td className="p-2 pl-17">
+          <div className="flex flex-wrap justify-start gap-x-4 min-w-[240px]">
+            {game.winningPlayers.map((player) => (
+              <div
+                key={player.username}
+                className="flex items-center gap-2 w-[100px]" // 👈 고정 너비로 수직 정렬 유지
+              >
+                <div className="relative w-6 h-6 shrink-0">
+                  <Image
+                    src={`/icons/classes/${classIconMap[player.class]}.jpg`}
+                    alt={player.class}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <span className="text-green-300 text-xl whitespace-nowrap">
+                  {player.username}
+                </span>
+              </div>
+            ))}
+          </div>
+        </td>
+
+        {/* VS */}
+        <td className="p-2 font-bold text-white align-middle text-xl">VS</td>
+
+        {/* ✅ 패배 팀 */}
+        <td className="p-2 pl-17">
+          <div className="flex flex-wrap justify-start gap-x-4 min-w-[240px]">
+            {game.losingPlayers.map((player) => (
+              <div
+                key={player.username}
+                className="flex items-center gap-2 w-[100px]" // 👈 동일하게 정렬
+              >
+                <div className="relative w-6 h-6 shrink-0">
+                  <Image
+                    src={`/icons/classes/${classIconMap[player.class]}.jpg`}
+                    alt={player.class}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <span className="text-red-300 text-xl whitespace-nowrap">
+                  {player.username}
+                </span>
+              </div>
+            ))}
+          </div>
+        </td>
+      </tr>
+    ))
+  ) : (
+    <tr>
+      <td colSpan="4" className="text-center p-4 text-gray-400">
+        🚀 게임 이력을 불러오는 중...
+      </td>
+    </tr>
+  )}
+</tbody>
+
+
         </table>
       </div>
+
     </div>
   );
 }
