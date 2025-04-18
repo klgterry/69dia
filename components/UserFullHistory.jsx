@@ -45,7 +45,7 @@ export default function UserFullHistory({ selectedUser }) {
           return dateB - dateA || b.gameId - a.gameId;
         });
 
-        setFilteredGames(sortedGames.slice(0, 5));
+        setFilteredGames(sortedGames.slice(0, 6));
       })
       .catch((err) => {
         console.error("❌ 유저 게임 이력 불러오기 실패", err);
@@ -62,96 +62,105 @@ export default function UserFullHistory({ selectedUser }) {
         backgroundSize: "824px 400px",
       }}
     >
-      <h3 className="text-xl font-bold text-white mb-4 text-center drop-shadow-sm mt-2">
+      <h3 className="text-xl font-bold text-white mb-4 text-center drop-shadow-sm mt-3">
         📜 <span className="text-yellow-300">{selectedUser}</span>의 최근 5경기 상세
       </h3>
 
-      <table className="w-full border-collapse border border-gray-700 text-center text-sm bg-transparent">
-        <thead>
-          <tr className="border-b border-gray-700">
-            <th className="p-2 text-white">승리 팀</th>
-            <th className="p-2 text-white">VS</th>
-            <th className="p-2 text-white">패배 팀</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredGames.length > 0 ? (
-            filteredGames.map((game, idx) => (
-              <tr key={game.gameId} className="border-b border-gray-700">
-                {/* 승리 팀 */}
-                <td className={`p-2 ${idx === 0 ? "pl-1" : "pl-10"}`}>
-                  <div className={`flex gap-1 ${idx === 0 ? "items-center" : "items-start"}`}>
-                    {/* 🆕 최신 경기 표시 */}
-                    {idx === 0 && (
-                      <span className="ml-1 px-1 py-0.5 text-[10px] bg-yellow-400 text-black rounded-sm font-bold">
-                        NEW
-                      </span>
-                    )}
+      <div className="relative w-[780px] h-[100px] mx-auto mt-6">
 
-                    {game.winningPlayers.map((player) => (
-                      <div key={player.username} className="flex items-center gap-1 w-[80px]">
-                        <div className="relative w-5 h-5 shrink-0">
-                          <Image
-                            src={`/icons/classes/${classIconMap[player.class]}.jpg`}
-                            alt={player.class}
-                            fill
-                            className="object-contain"
-                          />
-                        </div>
-                        <span
-                          className={`text-sm whitespace-nowrap ${
-                            player.username === selectedUser
-                              ? "font-bold underline text-green-300"
-                              : "text-white"
-                          }`}
-                        >
-                          {player.username}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </td>
-
-                {/* VS */}
-                <td className="p-2 font-bold text-white">VS</td>
-
-                {/* 패배 팀 */}
-                <td className="p-2 pl-5">
-                  <div className="flex gap-1 items-start">
-                    {game.losingPlayers.map((player) => (
-                      <div key={player.username} className="flex items-center gap-1 w-[80px]">
-                        <div className="relative w-5 h-5 shrink-0">
-                          <Image
-                            src={`/icons/classes/${classIconMap[player.class]}.jpg`}
-                            alt={player.class}
-                            fill
-                            className="object-contain"
-                          />
-                        </div>
-                        <span
-                          className={`text-sm whitespace-nowrap ${
-                            player.username === selectedUser
-                              ? "font-bold underline text-red-300"
-                              : "text-white"
-                          }`}
-                        >
-                          {player.username}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </td>
+        {/* ✅ NEW 라인 오버레이 */}
+        <div className="absolute top-[5px] w-[824px] left-0 w-full h-[40px] z-30 pointer-events-none">
+          <Image
+            src="/icons/bg/new_line.png"
+            alt="NEW 라인"
+            width={780}      // 원하는 가로 폭
+            height={32}      // 원하는 세로 높이
+          />
+        </div>
+        {/* ✅ 테이블 전체 박스 (UserFullHistory) */}
+        <div className="absolute inset-0 z-10 -mt-2">
+          <table className="w-full border-collapse border border-gray-700 text-center text-sm bg-transparent">
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="p-2 text-white">승리 팀</th>
+                <th className="p-2 text-white">VS</th>
+                <th className="p-2 text-white">패배 팀</th>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="4" className="p-4 text-gray-400 text-center">
-                🕓 경기 기록이 없습니다.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {filteredGames.map((game, idx) => (
+                <tr key={game.gameId} className="border-b border-gray-700">
+                  <td className={`p-2 pl-4 ${idx === 0 ? "relative z-20" : ""}`}>
+                    {/* 승리팀 */}
+                    <div className="flex gap-1 items-center">
+                      {game.winningPlayers.map((player) => (
+                        <div key={player.username} className="flex items-center gap-1 w-[80px]">
+                          <div className="relative w-5 h-5 shrink-0">
+                            <Image
+                              src={`/icons/classes/${classIconMap[player.class]}.jpg`}
+                              alt={player.class}
+                              fill
+                              className="object-contain"
+                            />
+                          </div>
+                          <span
+                            className={`text-sm whitespace-nowrap ${
+                              player.username === selectedUser
+                                ? "font-bold underline text-green-300"
+                                : "text-white"
+                            }`}
+                          >
+                            {player.username}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="p-2 font-bold text-white">VS</td>
+                  <td className={`p-2 pl-4 ${idx === 0 ? "relative z-20" : ""}`}>
+                    {/* 패배팀 */}
+                    <div className="flex gap-1 items-center">
+                      {game.losingPlayers.map((player) => (
+                        <div key={player.username} className="flex items-center gap-1 w-[80px]">
+                          <div className="relative w-5 h-5 shrink-0">
+                            <Image
+                              src={`/icons/classes/${classIconMap[player.class]}.jpg`}
+                              alt={player.class}
+                              fill
+                              className="object-contain"
+                            />
+                          </div>
+                          <span
+                            className={`text-sm whitespace-nowrap ${
+                              player.username === selectedUser
+                                ? "font-bold underline text-red-300"
+                                : "text-white"
+                            }`}
+                          >
+                            {player.username}
+                          </span>
+                        </div>
+                      ))}
+                      
+                    </div>
+                    
+                  </td>
+                </tr>
+              ))}
+            </tbody> 
+          </table>
+          {/* ✅ 하단 그라데이션 */}
+          <div className="left-0 w-full -mt-20 h-[20px] z-20 pointer-events-none">
+            <Image
+              src="/icons/bg/gradient.png"
+              alt="하단 그라데이션"
+              width={780}
+              height={20}
+              className="object-cover opacity-90"
+            />
+          </div>
+         </div>
+      </div>
     </div>
   );
 }
