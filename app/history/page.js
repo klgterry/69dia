@@ -32,7 +32,7 @@ export default function HistoryPage() {
     fetchGameHistory()
       .then((data) => {
         if (data.games) {
-          setGameHistory(data.games.slice(0, 10)); // 🔥 최근 10개만 표시
+          setGameHistory(data.games.slice(0, 5)); // 🔥 최근 10개만 표시
         }
       })
       .catch((error) => console.error("Error fetching game history:", error));

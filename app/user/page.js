@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import UserFullHistory from "@/components/UserFullHistory";
+
 
 // ✅ GAS API
 async function fetchUserList() {
-  const res = await fetch("/api/gasApi?action=getUsersAndAliases");
+  const res = await fetch("/api/gasApi?action=getFilteredUsers");
   const data = await res.json();
   return data;
 }
@@ -351,7 +353,7 @@ export default function UserPage() {
         {isUserListLoading ? (
           <p className="text-gray-400 text-sm text-center">🚀 유저 데이터를 불러오는 중입니다...</p>
         ) : (
-          <div className="relative w-[824px] h-[200px] mx-auto my-6 rounded-lg p-4 bg-[#353f54]">
+          <div className="relative w-[824px] h-[100px] mx-auto my-6 rounded-lg p-4 bg-[#353f54]">
             <div className="flex flex-wrap justify-left gap-1 w-full h-full items-center">
             {userList.map((user) => (
             <button
@@ -507,7 +509,14 @@ export default function UserPage() {
           )}
         </div>
       )}
+      {selectedUser && (
+  <div className="mt-8">
+    <UserFullHistory selectedUser={selectedUser} />
+  </div>
+)}
+
     </div>
+    
   );
 }
 
