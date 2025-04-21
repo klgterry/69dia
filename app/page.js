@@ -255,7 +255,15 @@ export default function HomePage() {
                   </td>
                   <td className="px-4 py-2 flex md:flex-row items-center space-x-3 border-r border-gray-600 whitespace-nowrap">
                     <UserProfileImage username={player.username} />
-                    <span className="text-lg font-medium">{player.username}</span>
+                    <span
+                      className="text-lg font-medium cursor-pointer hover:underline"
+                      onClick={() => {
+                        const popupUrl = `/user-popup?name=${encodeURIComponent(player.username)}&season=${encodeURIComponent(selectedSeason?.TITLE || "")}`;
+                        window.open(popupUrl, "userPopup", "width=900,height=800,left=100,top=100,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no");
+                      }}
+                    >
+                      {player.username}
+                    </span>
                   </td>
                   <td className="px-6 py-3 text-lg font-semibold border-r border-gray-600 whitespace-nowrap">
                     {player.wins}

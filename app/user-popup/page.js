@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import UserFullHistory from "@/components/UserFullHistory";
+import { useSearchParams } from "next/navigation"; // 맨 위에 추가
 
 
 // ✅ GAS API
@@ -126,6 +127,23 @@ export default function UserPage() {
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const username = params.get("name");
+    const season = params.get("season");
+  
+    setSelectedUser(username);
+  
+    fetchSeasonList().then((data) => {
+      const allOption = { TITLE: "ALL", START_TIME: null, END_TIME: null };
+      const fullList = [allOption, ...data];
+      setSeasonList(fullList);
+  
+      const defaultSeason = fullList.find((s) => s.TITLE === season) || allOption;
+      setSelectedSeason(defaultSeason);
+    });
+  }, []);
+
+  useEffect(() => {
     setIsUserListLoading(true);
     fetchUserList()
       .then((data) => {
@@ -138,16 +156,6 @@ export default function UserPage() {
         console.error("유저 목록 불러오기 실패:", err);
         setIsUserListLoading(false);
       });
-  }, []);
-
-  useEffect(() => {
-    fetchSeasonList().then((data) => {
-      const allOption = { TITLE: "ALL", START_TIME: null, END_TIME: null };
-      const fullList = [allOption, ...data];
-  
-      setSeasonList(fullList);
-      setSelectedSeason(allOption); // ✅ 디폴트는 "ALL"
-    });
   }, []);
 
   // 시즌 변경만 감지해서 fetch
@@ -317,70 +325,12 @@ export default function UserPage() {
   
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
-      {/* 네비게이션 바 */}
-      <nav className="flex justify-start items-center space-x-6 bg-gray-800 p-2 rounded-lg shadow-md text-lg font-bold tracking-widest pl-4">
-        <div className="relative w-12 h-12">
-          <Image src="/icons/logo.png" alt="Logo" fill className="object-contain" />
-        </div>
-        {[
-          { name: "home", path: "/" },
-          { name: "rule", path: "/rule" },
-          { name: "setting", path: "/setting" },
-          { name: "user", path: "/user" },
-          { name: "history", path: "/history" },
-          { name: "ready", path: "/ready" }
-        ].map(({ name, path }) => (
-          <button
-            key={name}
-            onClick={() => {
-              router.push(path); // ✅ 실제로 이동
-            }}
-            className="w-28 h-8 flex items-center justify-center md:w-36 md:h-10"
-            style={{
-              backgroundImage: `url('/icons/nav/${name}.png')`,
-              backgroundSize: "contain",
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "center",
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}_hover.png')`}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundImage = `url('/icons/nav/${name}.png')`}
-          />
-        ))}
-      </nav>
-
-      {/* 유저 선택 버튼 */}
-      <div className="overflow-x-auto whitespace-nowrap my-6 mx-auto">
-      <p className="text-center mt-10 text-gray-400">※ Total 5 게임 이상부터 조회 가능합니다.</p>
-        {isUserListLoading ? (
-          <p className="text-gray-400 text-sm text-center">🚀 유저 데이터를 불러오는 중입니다...</p>
-        ) : (
-          <div className="relative w-[824px] h-[150px] mx-auto my-6 rounded-lg p-4 bg-[#353f54]">
-             
-            <div className="flex flex-wrap justify-left gap-1 w-full h-full items-center">
-            {userList.map((user) => (
-            <button
-              key={user}
-              onClick={() => {
-                setSelectedUser(user);
-                const all = seasonList.find(s => s.TITLE === "ALL");
-                if (all) setSelectedSeason(all);
-              }}
-              className="px-3 py-1 text-white border border-white rounded-full shadow-md hover:bg-white hover:text-gray-900 transition-all duration-200 text-sm"
-            >
-              {user}
-            </button>
-          ))}
-
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* 유저 상세 카드 */}
       {!selectedUser ? (
         <p className="text-center mt-10 text-gray-400">👆 유저를 선택해주세요.</p>
       ) : (
-        <div className="bg-center bg-no-repeat bg-contain p-6 rounded-lg max-w-1xl mx-auto -mt-10 relative"
+        <div className="bg-center bg-no-repeat bg-contain p-6 rounded-lg max-w-1xl mx-auto relative"
           style={{
             width: "824px",
             height: "768px",
@@ -511,14 +461,7 @@ export default function UserPage() {
           )}
         </div>
       )}
-      {selectedUser && (
-  <div className="mt-8">
-    <UserFullHistory selectedUser={selectedUser} />
-  </div>
-)}
-
     </div>
-    
   );
 }
 
