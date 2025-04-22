@@ -8,8 +8,6 @@ import UserFullHistory from "@/components/UserFullHistory";
 import UserStatsSection from "@/components/UserStatsSection";
 import WeeklyRanking from "@/components/WeeklyRanking"; // 경로는 실제 파일에 맞게
 
-
-
 // ✅ GAS API
 async function fetchUserList() {
   const res = await fetch("/api/gasApi?action=getFilteredUsers");
