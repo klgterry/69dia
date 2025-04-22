@@ -5,10 +5,17 @@ console.log("🌐 GAS_URL:", process.env.NEXT_PUBLIC_GAS_URL);
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const action = searchParams.get("action");
+  const username = searchParams.get("username"); // 👈 추가
+  const season = searchParams.get("season");     // 👈 필요한 다른 파라미터도 여기에 추가 가능
 
-  
+  // 모든 쿼리 파라미터를 조립
+  const query = new URLSearchParams({
+    action,
+    ...(username ? { username } : {}),
+    ...(season ? { season } : {})
+  });
 
-  const url = `${GAS_URL}?action=${action}`;
+  const url = `${GAS_URL}?${query.toString()}`;
   console.log("🚀 GAS 요청 URL:", url);
 
   try {
@@ -29,6 +36,7 @@ export async function GET(req) {
     });
   }
 }
+
 
 export async function POST(req) {
   try {

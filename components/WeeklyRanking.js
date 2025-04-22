@@ -19,25 +19,45 @@ export default function WeeklyRanking() {
           fetch("/api/gasApi?action=getWeeklyWinStreakRanking"),
           fetch("/api/gasApi?action=getWeeklyDuoRanking")
         ]);
-
+  
         const [winsData, streaksData, duosData] = await Promise.all([
           winsRes.json(),
           streaksRes.json(),
           duosRes.json()
         ]);
-
-        setWins(winsData);
-        setStreaks(streaksData);
-        setDuos(duosData);
+  
+        const sortedWins = assignRanks([...winsData].sort((a, b) => b.WINS - a.WINS), "WINS");
+        const sortedStreaks = assignRanks([...streaksData].sort((a, b) => b.STREAK - a.STREAK), "STREAK");
+        const sortedDuos = assignRanks([...duosData].sort((a, b) => b.WINS - a.WINS), "WINS");
+  
+        setWins(sortedWins);
+        setStreaks(sortedStreaks);
+        setDuos(sortedDuos);
       } catch (err) {
         console.error("❌ 주간 랭킹 데이터 로딩 실패:", err);
       } finally {
         setIsLoading(false);
       }
     }
-
+  
     fetchAll();
-  }, [])
+  }, []);
+  
+
+  function assignRanks(data, key = "WINS") {
+    let rank = 1;
+    return data.map((item, index, arr) => {
+      if (index > 0 && arr[index - 1][key] === item[key]) {
+        item.rank = arr[index - 1].rank; // 이전과 점수 같으면 같은 랭크
+      } else {
+        item.rank = rank;
+      }
+      rank++;
+      return item;
+    });
+  }
+  
+  
 
   const getBadge = (rank) => {
     if (rank === 1) return "/icons/rank/1.png";
@@ -52,13 +72,6 @@ export default function WeeklyRanking() {
     if (rank === 3) return "text-yellow-300 font-bold";
     return "text-white";
   };
-
-  const Badge = ({ rank }) => (
-    <div className="relative w-6 h-6 mx-auto">
-      <Image src={getBadge(rank)} alt="badge" fill className="object-contain" />
-    </div>
-  );
-  
 
   const renderUserCell = (username, rank) => {
     const trimmed = username?.trim();
@@ -136,31 +149,31 @@ export default function WeeklyRanking() {
                 return (
                 <tr key={idx} className="text-center">
                     {/* 🏆 승수 */}
-                    <td>{getBadge(idx + 1) ? (
+                    <td>{getBadge(win.rank) ? (
                     <div className="relative w-5 h-5 mx-auto">
-                        <Image src={getBadge(idx + 1)} alt="badge" fill className="object-contain" />
+                        <Image src={getBadge(win.rank)} alt="badge" fill className="object-contain" />
                     </div>
-                    ) : idx + 1}</td>
-                    <td>{win && renderUserCell(win.PLAYER, idx + 1)}</td>
-                    <td className={`text-left pr-6 ${getTextClass(idx + 1)}`}>{win?.WINS}</td>
+                    ) : win.rank}</td>
+                    <td>{win && renderUserCell(win.PLAYER, win.rank)}</td>
+                    <td className={`text-left pr-6 ${getTextClass(win.rank)}`}>{win?.WINS}</td>
 
                     {/* 🔥 연승 - 첫 컬럼에 세로선 추가 */}
-                    <td className="pl-8 border-l-4 border-gray-400">{getBadge(idx + 1) ? (
+                    <td className="pl-8 border-l-4 border-gray-400">{getBadge(streak.rank) ? (
                     <div className="relative w-5 h-5 mx-auto pl-8">
-                        <Image src={getBadge(idx + 1)} alt="badge" fill className="object-contain" />
+                        <Image src={getBadge(streak.rank)} alt="badge" fill className="object-contain" />
                     </div>
-                    ) : idx + 1}</td>
-                    <td>{streak && renderUserCell(streak.PLAYER, idx + 1)}</td>
-                    <td className={`text-left pr-6 ${getTextClass(idx + 1)}`}>{streak?.STREAK}</td>
+                    ) : streak.rank}</td>
+                    <td>{streak && renderUserCell(streak.PLAYER, streak.rank)}</td>
+                    <td className={`text-left pr-6 ${getTextClass(streak.rank)}`}>{streak?.STREAK}</td>
 
                     {/* 👥 듀오 승 - 첫 컬럼에 세로선 추가 */}
-                    <td className="pl-8 border-l-4 border-gray-400">{getBadge(idx + 1) ? (
+                    <td className="pl-8 border-l-4 border-gray-400">{getBadge(duo.rank) ? (
                     <div className="relative w-5 h-5 mx-auto pl-8">
-                        <Image src={getBadge(idx + 1)} alt="badge" fill className="object-contain" />
+                        <Image src={getBadge(duo.rank)} alt="badge" fill className="object-contain" />
                     </div>
-                    ) : idx + 1}</td>
-                    <td>{duo && renderDuoCell(duo.DUO, idx + 1)}</td>
-                    <td className={`text-left ${getTextClass(idx + 1)}`}>{duo?.WINS}</td>
+                    ) : duo.rank}</td>
+                    <td>{duo && renderDuoCell(duo.DUO, duo.rank)}</td>
+                    <td className={`text-left ${getTextClass(duo.rank)}`}>{duo?.WINS}</td>
                 </tr>
                 );
             })}

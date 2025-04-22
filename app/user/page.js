@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import UserFullHistory from "@/components/UserFullHistory";
+import UserStatsSection from "@/components/UserStatsSection";
 import WeeklyRanking from "@/components/WeeklyRanking"; // 경로는 실제 파일에 맞게
 
 
@@ -518,13 +519,12 @@ export default function UserPage() {
         </div>
       )}
       {selectedUser && (
-  <div className="mt-8">
-    <UserFullHistory selectedUser={selectedUser} />
-  </div>
-)}
-
+        <div className="mt-8">
+          <UserFullHistory selectedUser={selectedUser} />
+          <UserStatsSection selectedUser={selectedUser} />
+        </div>
+      )}
     </div>
-    
   );
 }
 
