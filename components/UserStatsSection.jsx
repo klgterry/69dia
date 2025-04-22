@@ -104,6 +104,38 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
       </text>
     );
   };
+
+  const renderCustomDot = (props, data) => {
+    const { cx, cy, index } = props;
+    const isLast = index === data.length - 1;
+  
+    return (
+      <>
+        {/* ✅ 기본 점에 key 부여 */}
+        <circle
+          key={`dot-circle-${index}`}
+          cx={cx}
+          cy={cy}
+          r={4}
+          stroke="#00C49F"
+          strokeWidth={2}
+          fill="#00C49F"
+        />
+  
+        {/* ✅ 이미지에도 key 부여 */}
+        {isLast && (
+          <image
+            key={`dot-img-${index}`}
+            href="/icons/bg/new-tracking.png"
+            x={cx - 35}
+            y={cy - 48}
+            width={70}
+            height={70}
+          />
+        )}
+      </>
+    );
+  };
   
   return (
     <div
@@ -119,29 +151,41 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
 
       <div className="flex justify-between w-full px-4 mt-4">
         {/* 왼쪽: 클래스별 승률 */}
-        <div className="w-[40%]">
+        <div className="w-[40%] relative">
           <p className="text-white font-semibold mb-2 pl-5">📈 최근 20경기 승리 클래스 분포</p>
           {winDist && winDist.length > 0 ? (
-            <PieChart width={250} height={250}>
-              <Pie
-                data={winDist}
-                cx="60%"
-                cy="50%"
-                innerRadius={30}
-                labelLine={false}
-                outerRadius={100}
-                dataKey="WINS"
-                label={renderCustomizedLabel}
-                >
-                {winDist.map((entry, index) => {
-                    const label = classLabelMap[entry.CLASS] || entry.CLASS;
-                    const color = classColorMap[label] || "#8884d8";
-                    return <Cell key={`cell-${index}`} fill={color} />;
-                })}
-                </Pie>
-            </PieChart>
+            <div className="relative w-[250px] h-[250px] mx-auto">
+              {/* 🎨 배경 이미지 */}
+              <img
+                src="/icons/bg/ring-bg.png" // ⛳ public 폴더 기준 경로로 바꿔주세요!
+                alt="도넛 배경"
+                className="absolute top-0 left-0 w-full h-full object-cover z-10 pointer-events-none translate-x-[-1px]"
+              />
+
+              {/* 🍩 도넛 차트 */}
+              <div className="absolute top-0 left-0 w-full h-full z-10">
+                <PieChart width={250} height={250}>
+                  <Pie
+                    data={winDist}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={30}          // ← 중앙 구멍 넓게
+                    outerRadius={105} 
+                    labelLine={false}
+                    dataKey="WINS"
+                    label={renderCustomizedLabel}
+                  >
+                    {winDist.map((entry, index) => {
+                      const label = classLabelMap[entry.CLASS] || entry.CLASS;
+                      const color = classColorMap[label] || "#8884d8";
+                      return <Cell key={`cell-${index}`} fill={color} />;
+                    })}
+                  </Pie>
+                </PieChart>
+              </div>
+            </div>
           ) : (
-            <p className="text-gray-400 text-sm">데이터 없음</p>
+            <p className="text-gray-400 text-sm pl-5">데이터 없음</p>
           )}
         </div>
 
@@ -152,8 +196,8 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
             <ResponsiveContainer width="100%" height={250}>
             <LineChart
               data={rankTrend}
-              margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-            >
+              margin={{ top: 45, right: 30, left: 0, bottom: 0 }} // ← top margin 충분히 확보!
+              >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="DATE"
@@ -172,22 +216,41 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
                 tick={{ fill: "white", fontSize: 12 }}
                 tickFormatter={(value) => `${value}위`}
               />
-              <Tooltip formatter={(value) => `${value}위`} />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const { RANK, WINS } = payload[0].payload;
+                    const date = new Date(label).toLocaleDateString("ko-KR", {
+                      month: "2-digit",
+                      day: "2-digit",
+                    });
+
+                    return (
+                      <div className="bg-gray-800 text-white text-xs p-2 rounded shadow-md border border-gray-600">
+                        <div>📅 {date}</div>
+                        <div>🏆 순위: {RANK}위</div>
+                        <div>⚔️ 누적 승수: {WINS}승</div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
               <Line
                 type="monotone"
                 dataKey="RANK"
                 stroke="#00C49F"
                 strokeWidth={2}
-                dot={{ r: 4, stroke: "#00C49F", strokeWidth: 2, fill: "#00C49F" }}
-              >
-                <LabelList
-                  dataKey="RANK"
-                  position="top"
-                  formatter={(value) => `${value}위`}
-                  fill="#ffffff"
-                  fontSize={12}
-                />
-              </Line>
+                dot={(props) => renderCustomDot(props, rankTrend)}
+            >
+              <LabelList
+                dataKey="RANK"
+                position="top"
+                formatter={(value) => `${value}위`}
+                fill="#ffffff"
+                fontSize={12}
+              />
+            </Line>
             </LineChart>
           </ResponsiveContainer>
           ) : (
