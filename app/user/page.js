@@ -5,6 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import UserFullHistory from "@/components/UserFullHistory";
+import WeeklyRanking from "@/components/WeeklyRanking"; // 경로는 실제 파일에 맞게
+
 
 
 // ✅ GAS API
@@ -350,9 +352,13 @@ export default function UserPage() {
 
       {/* 유저 선택 버튼 */}
       <div className="overflow-x-auto whitespace-nowrap my-6 mx-auto">
-      <p className="text-center mt-10 text-gray-400">※ Total 5 게임 이상부터 조회 가능합니다.</p>
+      <p className="text-center mt-10 text-sm text-gray-400">
+        ※ Total 5 게임 이상부터 조회 가능합니다.
+        <span className="mx-2 text-gray-600">|</span>
+        <span className="text-white">👆 유저를 선택해주세요.</span>
+      </p>
         {isUserListLoading ? (
-          <p className="text-gray-400 text-sm text-center">🚀 유저 데이터를 불러오는 중입니다...</p>
+          <p className="text-gray-400 text-sm text-center">🚀데이터를 불러오는 중입니다...</p>
         ) : (
           <div className="relative w-[824px] h-[150px] mx-auto my-6 rounded-lg p-4 bg-[#353f54]">
              
@@ -378,7 +384,7 @@ export default function UserPage() {
 
       {/* 유저 상세 카드 */}
       {!selectedUser ? (
-        <p className="text-center mt-10 text-gray-400">👆 유저를 선택해주세요.</p>
+        <WeeklyRanking />
       ) : (
         <div className="bg-center bg-no-repeat bg-contain p-6 rounded-lg max-w-1xl mx-auto -mt-10 relative"
           style={{

@@ -1025,47 +1025,6 @@ export default function TeamPage() {
               style={{ height: "auto" }}
             />
           </button>
-
-          {/* 🟣 결과 등록 버튼 */}
-          <button
-            className="w-48 h-12"
-            onClick={() => {
-              setIsRegisterPressed(true);
-              playSound("alert.mp3");
-
-              // ✅ 1초 후 점수 유효성 검사
-              setTimeout(() => {
-                const total = teamAScore + teamBScore;
-
-                if (teamAScore === 0 && teamBScore === 0) {
-                  alert("⚠️ 경기 결과가 없습니다!\n점수를 입력한 후 등록해주세요.");
-                } else if (
-                  (teamAScore !== 5 && teamBScore !== 5) || // 승리팀이 5점 아니면 ❌
-                  (teamAScore === 5 && teamBScore === 5) || // 무승부 ❌
-                  total > 9 // 최대 9점까지 허용
-                ) {
-                  alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 5점이어야 하고, 최대 점수는 5:4입니다.");
-                } else {
-                  // ✅ 점수 유효 → 팝업 오픈
-                  setShowRegisterPopup(true);
-                }
-
-                setIsRegisterPressed(false); // 딸깍 효과 복원
-              }, 1000);
-            }}
-          >
-            <Image
-              src={
-                isRegisterPressed
-                  ? "/icons/buttons/결과등록2.png"
-                  : "/icons/buttons/결과등록1.png"
-              }
-              alt="결과 등록"
-              width={192}
-              height={48}
-              style={{ height: "auto" }}
-            />
-          </button>
         </div>
         {/* ✅ (1) 비밀번호 입력 팝업 */}
         {showRegisterPopup && (
