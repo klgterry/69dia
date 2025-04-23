@@ -170,7 +170,14 @@ export default function HomePage() {
       {/*<div className="mt-8 bg-gray-800 p-8 rounded-lg max-w-5xl mx-auto">*/}
       <div className="mt-8 bg-gray-800 p-8 rounded-lg max-w-3xl mx-auto overflow-x-auto">
 
-        <h2 className="text-center text-xl font-semibold">🏆 Ranking</h2>
+        <div className="flex justify-center -mt-5">
+          <img
+            src="/images/ranking.jpg" // ⛳ public 디렉토리에 저장된 위치 기준!
+            alt="Ranking 타이틀 배너"
+            className="w-[250px] h-auto" // 원하는 너비로 조정
+          />
+        </div>
+
         {/* 시즌 선택 드롭다운 (테이블 기준 정렬) */}
         <div className="max-w-3xl mx-auto flex justify-end">
         {seasonList.length > 0 && selectedSeason && (
