@@ -15,6 +15,8 @@ import {
   Legend,
   LabelList,
 } from "recharts";
+import React from "react";
+
 
 const classLabelMap = {
   "드": "드루",
@@ -110,10 +112,8 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
     const isLast = index === data.length - 1;
   
     return (
-      <>
-        {/* ✅ 기본 점에 key 부여 */}
+      <React.Fragment key={`dot-wrapper-${index}`}>
         <circle
-          key={`dot-circle-${index}`}
           cx={cx}
           cy={cy}
           r={4}
@@ -121,11 +121,8 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
           strokeWidth={2}
           fill="#00C49F"
         />
-  
-        {/* ✅ 이미지에도 key 부여 */}
         {isLast && (
           <image
-            key={`dot-img-${index}`}
             href="/icons/bg/new-tracking.png"
             x={cx - 35}
             y={cy - 48}
@@ -133,8 +130,10 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
             height={70}
           />
         )}
-      </>
+      </React.Fragment>
     );
+    
+    
   };
   
   return (
@@ -152,7 +151,7 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
       <div className="flex justify-between w-full px-4 mt-4">
         {/* 왼쪽: 클래스별 승률 */}
         <div className="w-[40%] relative">
-          <p className="text-white font-semibold mb-2 pl-5">📈 최근 20경기 승리 클래스 분포</p>
+          <p className="text-white font-semibold mb-2 pl-5">📈 최근 50경기 승리 클래스 분포</p>
           {winDist && winDist.length > 0 ? (
             <div className="relative w-[250px] h-[250px] mx-auto">
               {/* 🎨 배경 이미지 */}
