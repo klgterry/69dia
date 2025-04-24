@@ -211,6 +211,8 @@ export default function TeamPage() {
   const [inputSubmittedBy, setInputSubmittedBy] = useState(""); // 등록자명
   const [isRegisterLoading, setRegisterLoading] = useState(false);
   const [gameNumber, setGameNumber] = useState("");
+  const [isBestOfFive, setIsBestOfFive] = useState(false); // 기본 체크 상태
+
 
     
   useEffect(() => {
@@ -880,8 +882,46 @@ export default function TeamPage() {
           </div>
         </div>
 
-        <h1 className="text-left text-4xl font-bold mt-6 mb-2 pr-150">*팀 생성 결과</h1>
+        <div className="flex items-center mt-6 mb-2">
+          <h1 className="text-left text-4xl font-bold">
+            *팀 생성 결과
+          </h1>
 
+          <div className="flex items-center gap-2 mr-4 pr-120 ml-5">
+            <label
+              className={`inline-flex items-center gap-1 ${
+                !isBestOfFive ? 'text-green-400 font-bold' : 'text-white'
+              }`}
+            >
+              <input
+                type="radio"
+                name="roundType"
+                value="3"
+                checked={!isBestOfFive}
+                onChange={() => setIsBestOfFive(false)}
+                className="form-radio accent-green-400 text-green-400 focus:ring-0"
+              />
+              3선승
+            </label>
+
+            <label
+              className={`inline-flex items-center gap-1 ${
+                isBestOfFive ? 'text-green-400 font-bold' : 'text-white'
+              }`}
+            >
+              <input
+                type="radio"
+                name="roundType"
+                value="5"
+                checked={isBestOfFive}
+                onChange={() => setIsBestOfFive(true)}
+                className="form-radio accent-green-400 text-green-400 focus:ring-0"
+              />
+              5선승
+            </label>
+          </div>
+
+        </div>
         <div className="flex justify-center items-center relative">
           {/* Combined Team Image */}
           {/* 팀 생성 완료 전과 후에 다른 이미지를 표시 */}
@@ -933,7 +973,7 @@ export default function TeamPage() {
                 onChange={(e) => setTeamAScore(Number(e.target.value))}
                 className="bg-gray-700 text-white p-1 rounded-lg"
               >
-                {[...Array(6).keys()].map(num => (
+                {[...Array(isBestOfFive ? 6 : 4).keys()].map(num => (
                   <option key={num} value={num}>{num}</option>
                 ))}
               </select>
@@ -946,7 +986,7 @@ export default function TeamPage() {
                 onChange={(e) => setTeamBScore(Number(e.target.value))}
                 className="bg-gray-700 text-white p-1 rounded-lg"
               >
-                {[...Array(6).keys()].map(num => (
+                {[...Array(isBestOfFive ? 6 : 4).keys()].map(num => (
                   <option key={num} value={num}>{num}</option>
                 ))}
               </select>
@@ -999,14 +1039,28 @@ export default function TeamPage() {
 
                 if (teamAScore === 0 && teamBScore === 0) {
                   alert("⚠️ 경기 결과가 없습니다!\n점수를 입력한 후 복사해주세요.");
-                } else if (
-                  (teamAScore !== 5 && teamBScore !== 5) || // 승자 5점 아니면 오류
-                  (teamAScore === 5 && teamBScore === 5) || // 무승부 ❌
-                  total > 9
-                ) {
-                  alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 5점이어야 하고, 최대 점수는 5:4입니다.");
+                } else if (isBestOfFive) {
+                  // ✅ 5선승 예외처리
+                  if (
+                    (teamAScore !== 5 && teamBScore !== 5) || // 승자 5점 아니면 오류
+                    (teamAScore === 5 && teamBScore === 5) || // 무승부 ❌
+                    total > 9
+                  ) {
+                    alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 5점이어야 하고, 최대 점수는 5:4입니다.");
+                  } else {
+                    handleCopyMatchResult();
+                  }
                 } else {
-                  handleCopyMatchResult();
+                  // ✅ 3선승 예외처리
+                  if (
+                    (teamAScore !== 3 && teamBScore !== 3) || // 승자 5점 아니면 오류
+                    (teamAScore === 3 && teamBScore === 3) || // 무승부 ❌
+                    total > 6
+                  ) {
+                    alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 3점이어야 하며, 최대 점수는 3:2입니다.");
+                  } else {
+                    handleCopyMatchResult();
+                  }
                 }
               }, 1000);
 
