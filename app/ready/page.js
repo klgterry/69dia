@@ -211,9 +211,7 @@ export default function TeamPage() {
   const [inputSubmittedBy, setInputSubmittedBy] = useState(""); // 등록자명
   const [isRegisterLoading, setRegisterLoading] = useState(false);
   const [gameNumber, setGameNumber] = useState("");
-  const [isBestOfFive, setIsBestOfFive] = useState(false); // 기본 체크 상태
-
-
+  const [winTarget, setWinTarget] = useState(3); // 기본은 3선승
     
   useEffect(() => {
     setIsTop10Loading(true);
@@ -888,37 +886,28 @@ export default function TeamPage() {
           </h1>
 
           <div className="flex items-center gap-2 mr-4 pr-120 ml-5">
-            <label
-              className={`inline-flex items-center gap-1 ${
-                !isBestOfFive ? 'text-green-400 font-bold' : 'text-white'
-              }`}
-            >
-              <input
-                type="radio"
-                name="roundType"
-                value="3"
-                checked={!isBestOfFive}
-                onChange={() => setIsBestOfFive(false)}
-                className="form-radio accent-green-400 text-green-400 focus:ring-0"
-              />
-              3선승
-            </label>
-
-            <label
-              className={`inline-flex items-center gap-1 ${
-                isBestOfFive ? 'text-green-400 font-bold' : 'text-white'
-              }`}
-            >
-              <input
-                type="radio"
-                name="roundType"
-                value="5"
-                checked={isBestOfFive}
-                onChange={() => setIsBestOfFive(true)}
-                className="form-radio accent-green-400 text-green-400 focus:ring-0"
-              />
-              5선승
-            </label>
+            {[
+              { value: 3, label: "3선승" },
+              { value: 4, label: "4선승" },
+              { value: 5, label: "5선승" },
+            ].map((option) => (
+              <label
+                key={option.value}
+                className={`inline-flex items-center gap-1 ${
+                  winTarget === option.value ? "text-green-400 font-bold" : "text-white"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="roundType"
+                  value={option.value}
+                  checked={winTarget === option.value}
+                  onChange={() => setWinTarget(option.value)}
+                  className="form-radio accent-green-400 text-green-400 focus:ring-0"
+                />
+                {option.label}
+              </label>
+            ))}
           </div>
 
         </div>
@@ -973,7 +962,7 @@ export default function TeamPage() {
                 onChange={(e) => setTeamAScore(Number(e.target.value))}
                 className="bg-gray-700 text-white p-1 rounded-lg"
               >
-                {[...Array(isBestOfFive ? 6 : 4).keys()].map(num => (
+                {[...Array(winTarget + 1).keys()].map(num => (
                   <option key={num} value={num}>{num}</option>
                 ))}
               </select>
@@ -986,7 +975,7 @@ export default function TeamPage() {
                 onChange={(e) => setTeamBScore(Number(e.target.value))}
                 className="bg-gray-700 text-white p-1 rounded-lg"
               >
-                {[...Array(isBestOfFive ? 6 : 4).keys()].map(num => (
+                {[...Array(winTarget + 1).keys()].map(num => (
                   <option key={num} value={num}>{num}</option>
                 ))}
               </select>
@@ -1036,33 +1025,24 @@ export default function TeamPage() {
 
               setTimeout(() => {
                 const total = teamAScore + teamBScore;
-
+              
                 if (teamAScore === 0 && teamBScore === 0) {
                   alert("⚠️ 경기 결과가 없습니다!\n점수를 입력한 후 복사해주세요.");
-                } else if (isBestOfFive) {
-                  // ✅ 5선승 예외처리
-                  if (
-                    (teamAScore !== 5 && teamBScore !== 5) || // 승자 5점 아니면 오류
-                    (teamAScore === 5 && teamBScore === 5) || // 무승부 ❌
-                    total > 9
-                  ) {
-                    alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 5점이어야 하고, 최대 점수는 5:4입니다.");
-                  } else {
-                    handleCopyMatchResult();
-                  }
-                } else {
-                  // ✅ 3선승 예외처리
-                  if (
-                    (teamAScore !== 3 && teamBScore !== 3) || // 승자 5점 아니면 오류
-                    (teamAScore === 3 && teamBScore === 3) || // 무승부 ❌
-                    total > 6
-                  ) {
-                    alert("🚨 점수 입력 오류!\n❗ 승자는 반드시 3점이어야 하며, 최대 점수는 3:2입니다.");
-                  } else {
-                    handleCopyMatchResult();
-                  }
+                  return;
                 }
-              }, 1000);
+              
+                const isTie = teamAScore === winTarget && teamBScore === winTarget;
+                const isWinnerValid = teamAScore === winTarget || teamBScore === winTarget;
+                const isTotalExceeded = total > winTarget * 2 - 1;
+              
+                if (!isWinnerValid || isTie || isTotalExceeded) {
+                  alert(
+                    `🚨 점수 입력 오류!\n❗ 승자는 반드시 ${winTarget}점이어야 하며, 최대 점수는 ${winTarget}:${winTarget - 1}입니다.`
+                  );
+                } else {
+                  handleCopyMatchResult();
+                }
+              }, 1000);             
 
               setTimeout(() => setIsCopyMatchPressed(false), 500);
             }}
