@@ -49,12 +49,7 @@ export default function HomePage() {
       window.open(
         "/popup1",
         "popup1",
-        "width=509,height=669,left=0,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
-      );
-      window.open(
-        "/popup2",
-        "popup2",
-        "width=497,height=600,left=509,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
+        "width=509,height=800,left=0,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
       );
     }
   }
