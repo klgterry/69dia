@@ -211,7 +211,7 @@ export default function TeamPage() {
   const [inputSubmittedBy, setInputSubmittedBy] = useState(""); // 등록자명
   const [isRegisterLoading, setRegisterLoading] = useState(false);
   const [gameNumber, setGameNumber] = useState("");
-  const [winTarget, setWinTarget] = useState(3); // 기본은 3선승
+  const [winTarget, setWinTarget] = useState(4); // 기본은 3선승
     
   useEffect(() => {
     setIsTop10Loading(true);
@@ -1035,14 +1035,22 @@ export default function TeamPage() {
                 const isWinnerValid = teamAScore === winTarget || teamBScore === winTarget;
                 const isTotalExceeded = total > winTarget * 2 - 1;
               
-                if (!isWinnerValid || isTie || isTotalExceeded) {
+                // ✅ 콜드게임 체크 (4선승 모드일 때 3:0 또는 0:3은 정상)
+                const isColdGame =
+                  winTarget === 4 &&
+                  (
+                    (teamAScore === 3 && teamBScore === 0) ||
+                    (teamAScore === 0 && teamBScore === 3)
+                  );
+              
+                if ((!isWinnerValid || isTie || isTotalExceeded) && !isColdGame) {
                   alert(
                     `🚨 점수 입력 오류!\n❗ 승자는 반드시 ${winTarget}점이어야 하며, 최대 점수는 ${winTarget}:${winTarget - 1}입니다.`
                   );
                 } else {
-                  handleCopyMatchResult();
+                  handleCopyMatchResult();  // 정상 복사 진행
                 }
-              }, 1000);             
+              }, 1000);                      
 
               setTimeout(() => setIsCopyMatchPressed(false), 500);
             }}

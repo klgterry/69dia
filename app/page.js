@@ -48,7 +48,7 @@ export default function HomePage() {
       // 데스크탑용 기본 팝업
       window.open(
         "/popup1",
-        "popup1",
+        "popup3",
         "width=509,height=800,left=0,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
       );
     }

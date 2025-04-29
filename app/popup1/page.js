@@ -24,10 +24,16 @@ export default function Popup1() {
   const [awardData, setAwardData] = useState(null);
 
   useEffect(() => {
-    const hide = localStorage.getItem("hidePopup1");
-    if (hide === "true") {
-      window.close();
-      return;
+    const hideUntil = localStorage.getItem("hidePopup3");
+
+    if (hideUntil) {
+      const now = Date.now();
+      if (now < parseInt(hideUntil, 10)) {
+        window.close();
+        return;
+      } else {
+        localStorage.removeItem("hidePopup3"); // 만료됐으면 삭제
+      }
     }
 
     fetch("/api/gasApi?action=getAwardData")
@@ -40,15 +46,17 @@ export default function Popup1() {
   }, []);
 
   const handleClose = () => window.close();
+
   const handleDontShowAgain = () => {
-    localStorage.setItem("hidePopup1", "true");
+    const expireDate = new Date();
+    expireDate.setDate(expireDate.getDate() + 15); // 15일 후
+    localStorage.setItem("hidePopup3", expireDate.getTime().toString());
     window.close();
   };
 
   if (!awardData || !awardData.top3 || !awardData.classKings) return null;
 
-  // 좌표 설정: 1등, 2등, 3등
-  // 기존 좌표에서 Y 위치만 조정 (프사는 약 40px 내려오고, 이름도 같이)
+  // 🥇🥈🥉 TOP3 위치 설정
   const positions = [
     { img: [132, 193], name: [100, 193] },  // 1등
     { img: [190, 50], name: [158, 50] },    // 2등
@@ -99,7 +107,7 @@ export default function Popup1() {
 
         {/* 👑 클래스별 다승왕 */}
         <div className="absolute bottom-[40px] w-full text-center text-white text-base font-semibold leading-[1.9]">
-        <div className="text-2xl font-bold mb-1">클래스별 다승왕</div>
+          <div className="text-2xl font-bold mb-1">클래스별 다승왕</div>
           {awardData.classKings.map((king, index) => (
             <div key={index}>
               {king.class} – {king.name} ({king.wins}승)
@@ -111,14 +119,17 @@ export default function Popup1() {
 
       {/* 버튼 영역 */}
       <div className="bg-gray-900 h-16 px-4 flex items-center justify-end space-x-3">
-        <button onClick={handleClose} className="bg-white text-black px-4 py-2 rounded">
+        <button
+          onClick={handleClose}
+          className="bg-white text-black px-4 py-2 rounded"
+        >
           닫기
         </button>
         <button
           onClick={handleDontShowAgain}
           className="bg-red-600 text-white px-4 py-2 rounded"
         >
-          다시 보지 않기
+          15일간 다시 보지 않기
         </button>
       </div>
     </div>
