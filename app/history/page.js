@@ -54,7 +54,8 @@ export default function HistoryPage() {
             { name: "setting", path: "/setting" },
             { name: "user", path: "/user" },
             { name: "history", path: "/history" },
-            { name: "ready", path: "/ready" }
+            { name: "ready", path: "/ready" },
+            { name: "prize", path: "/prize" }
           ].map(({ name, path }) => (
             <button
               key={name}

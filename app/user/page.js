@@ -329,7 +329,8 @@ export default function UserPage() {
           { name: "setting", path: "/setting" },
           { name: "user", path: "/user" },
           { name: "history", path: "/history" },
-          { name: "ready", path: "/ready" }
+          { name: "ready", path: "/ready" },
+          { name: "prize", path: "/prize" }
         ].map(({ name, path }) => (
           <button
             key={name}
@@ -773,6 +774,21 @@ function formatDateTime(isoString) {
 }
 
 function UserAwards({ seasonStats, selectedUser, seasonList }) {
+  const [prizeData, setPrizeData] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/gasApi?action=getPrizeData")
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("🎯 가져온 prizeData:", data); // ✅ 추가
+        setPrizeData(data.prize || data);            // ⭐ 여기! prize 필드가 있으면 data.prize, 없으면 data
+      })
+      .catch((err) => {
+        console.error("🎯 prize 데이터 가져오기 실패:", err);
+      });
+  }, []);
+  
+
   if (!seasonStats || seasonStats.length === 0 || !selectedUser || !seasonList || seasonList.length === 0) return null;
 
   const today = new Date();
@@ -782,17 +798,13 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
     (s) => s.TITLE !== "ALL" && new Date(s.END_TIME) < today
   );
 
-  console.log("📅 종료된 시즌 목록:", endedSeasons.map(s => s.TITLE));
-  console.log("🎯 대상 유저:", selectedUser);
-  console.log("📊 seasonStats:", seasonStats);
-
   const badgeMap = {
     1: { icon: "/icons/rank/1.png", seasons: [] },
     2: { icon: "/icons/rank/2.png", seasons: [] },
     3: { icon: "/icons/rank/3.png", seasons: [] },
   };
 
-  // ✅ 유저의 시즌 랭크 기록을 순회
+  // ✅ 시즌별 수상 내역 계산
   seasonStats.forEach((stat) => {
     const player = (stat.PLAYER || "").trim();
     const season = stat.SEASON;
@@ -813,32 +825,73 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
       seasons: v.seasons,
     }));
 
-  console.log("🏅 보여줄 뱃지:", badgesToShow);
-
   return (
     <div className="ml-30">
       <h3 className="text-xl text-white font-semibold mb-10 -mt-2">Awards</h3>
-      {badgesToShow.length > 0 ? (
-        <div className="flex flex-wrap gap-4">
-          {badgesToShow.map((badge, idx) => (
-            <div
-              key={idx}
-              className="flex flex-col items-center text-sm text-white"
-            >
-              <div className="w-14 h-14 relative">
-                <Image
-                  src={badge.icon}
-                  alt={`${badge.rank}등`}
-                  fill
-                  className="object-contain"
-                />
+
+      {badgesToShow.length > 0 || prizeData.some(prize => {
+        const sponsorList = prize.sponsor?.split(",").map(x => x.trim()) || [];
+        const winnerList = prize.winner?.split(",").map(x => x.trim()) || [];
+        return sponsorList.includes(selectedUser) || winnerList.includes(selectedUser);
+      }) ? (
+        <div className="flex flex-wrap gap-8">
+        {/* 1,2,3등 순위 뱃지 먼저 출력 */}
+        {badgesToShow.map((badge, idx) =>
+          badge.seasons.map((season, i) => (
+            // 시즌별 (랭킹+후원+당첨) 그룹
+            <div key={`${idx}-${i}`} className="flex flex-col items-center text-white">
+              <div className="flex flex-row gap-4 items-end">
+                {/* 순위 뱃지 */}
+                <div className="flex flex-col items-center">
+                  <div className="relative w-14 h-14">
+                    <Image src={badge.icon} alt={`${badge.rank}등`} fill className="object-contain" />
+                  </div>
+                  <span className="text-[10px] text-yellow-300 mt-1 whitespace-nowrap">{season}</span>
+                </div>
               </div>
-              <span className="text-xs mt-1 text-center text-yellow-300 leading-tight">
-                {badge.seasons.join(", ")}
-              </span>
             </div>
-          ))}
-        </div>
+          ))
+        )}
+      
+        {/* 추가: 후원/당첨 전용 뱃지 출력 */}
+        {prizeData
+        .filter(prize => {
+          const sponsorList = prize.sponsor?.split(",").map(x => x.trim()) || [];
+          const winnerList = prize.winner?.split(",").map(x => x.trim()) || [];
+
+          return sponsorList.includes(selectedUser) || winnerList.includes(selectedUser);
+        })
+        .map((prize, idx) => {
+          const sponsorList = prize.sponsor?.split(",").map(x => x.trim()) || [];
+          const winnerList = prize.winner?.split(",").map(x => x.trim()) || [];
+
+          const isSponsor = sponsorList.includes(selectedUser);
+          const isWinner = winnerList.includes(selectedUser);
+
+          return (
+            <div key={`prize-${idx}`} className="flex flex-col items-center text-white">
+              <div className="flex flex-row gap-4 items-end">
+                {isSponsor && (
+                  <div className="flex flex-col items-center">
+                    <div className="relative w-14 h-14">
+                      <Image src="/icons/sponsor.png" alt="후원" fill className="object-contain" />
+                    </div>
+                    <span className="text-[10px] text-gray-300 mt-1 whitespace-nowrap">후원</span>
+                  </div>
+                )}
+                {isWinner && (
+                  <div className="flex flex-col items-center">
+                    <div className="relative w-14 h-14">
+                      <Image src="/icons/gift.png" alt="당첨" fill className="object-contain" />
+                    </div>
+                    <span className="text-[10px] text-gray-300 mt-1 whitespace-nowrap">당첨</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
       ) : (
         <p className="text-gray-400 text-sm">획득한 뱃지가 없습니다.</p>
       )}
