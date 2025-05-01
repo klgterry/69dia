@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
-
-
 // ✅ GAS API 호출: prize 데이터 가져오기
 async function fetchPrizeData() {
   const response = await fetch("/api/gasApi?action=getPrizeData");
@@ -31,7 +29,7 @@ function Tooltip({ children, content, top, left, width }) {
           {children}
         </div>
         {show && (
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 z-50 bg-gray-800 text-white text-xs p-2 rounded shadow-md border border-gray-600 whitespace-pre-wrap max-w-[300px] text-left">
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 z-50 bg-gray-800 text-white text-lg p-2 rounded shadow-md border border-gray-600 whitespace-pre-wrap w-[300px] text-left">
             {content}
           </div>
         )}
@@ -39,8 +37,6 @@ function Tooltip({ children, content, top, left, width }) {
     );
   }
   
-  
-
 export default function PrizePage() {
   const [prizeData, setPrizeData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -154,28 +150,25 @@ export default function PrizePage() {
             >
                 {row.season || "-"}
             </div>
+              {/* 상품후원 */}
+              <Tooltip
+                content={row.sponsor_detail}
+                top={top}
+                left={200}
+                width={210}
+              >
+                {row.sponsor || "-"}
+              </Tooltip>
 
-
-            {/* 상품후원 */}
-<Tooltip
-  content={row.sponsor_detail}
-  top={top}
-  left={200}
-  width={210}
->
-  {row.sponsor || "-"}
-</Tooltip>
-
-{/* 상품당첨 */}
-<Tooltip
-  content={row.winner_detail}
-  top={top}
-  left={420}
-  width={210}
->
-  {row.winner || "-"}
-</Tooltip>
-
+              {/* 상품당첨 */}
+              <Tooltip
+                content={row.winner_detail}
+                top={top}
+                left={420}
+                width={210}
+              >
+                {row.winner || "-"}
+              </Tooltip>
             </div>
         );
         })}
