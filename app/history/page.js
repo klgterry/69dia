@@ -193,9 +193,6 @@ export default function HistoryPage() {
           </tbody>
         </table>
       </div>
-      <div className="mt-10">
-        <SearchBlock games={games} />
-      </div>
     </div>
   );
 }
