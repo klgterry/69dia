@@ -658,7 +658,7 @@ function UserSeasonStats({ username, seasonStats, isLoading, season, seasonList 
         {/* ALL 줄 출력 */}
         <div className="contents font-bold text-white mt-4">
           <div className="text-lg">ALL</div>
-          <div className="text-right text-2xl text-red-500">{wins}승</div>
+          <div className="text-right text-2xl text-red-500 whitespace-nowrap">{wins}승</div>
           <div className="text-right text-2xl text-red-500">{rank}위</div>
           {!isAllSeason && isSeasonOngoing ? (
             <div className="relative w-[24px] h-[24px]">
@@ -780,18 +780,25 @@ function formatDateTime(isoString) {
   return formatter.format(date).replace(/\. /g, '-').replace(/\./, '').replace(' ', ' ');
 }
 
+function getBadgeLevelByCount(count) {
+  if (count >= 10) return "noble";
+  if (count >= 6) return "noble";
+  if (count >= 3) return "fantastic";
+  return "origin";
+}
 
 function UserAwards({ seasonStats, selectedUser, seasonList }) {
   const [prizeData, setPrizeData] = useState([]);
+  const [showBadgeGuide, setShowBadgeGuide] = useState(false);
 
   useEffect(() => {
     fetch("/api/gasApi?action=getPrizeData")
-      .then((res) => res.json())
-      .then((data) => setPrizeData(data))
-      .catch((err) => console.error("🎯 prize 데이터 가져오기 실패:", err));
+      .then(res => res.json())
+      .then(data => setPrizeData(data))
+      .catch(err => console.error("🎯 prize 데이터 가져오기 실패:", err));
   }, []);
 
-  if (!seasonStats || seasonStats.length === 0 || !selectedUser || !seasonList || seasonList.length === 0) return null;
+  if (!seasonStats?.length || !selectedUser || !seasonList?.length) return null;
 
   const today = new Date();
 
@@ -800,107 +807,148 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
     (s) => s.TITLE !== "ALL" && new Date(s.END_TIME) < today
   );
 
-  // 랭킹 뱃지 계산
-  const badgeMap = {
-    1: { icon: "/icons/rank/1.png", seasons: [] },
-    2: { icon: "/icons/rank/2.png", seasons: [] },
-    3: { icon: "/icons/rank/3.png", seasons: [] },
+  // 1~3등 랭킹 뱃지 계산
+  const rankBadgeMap = {
+    1: [],
+    2: [],
+    3: [],
   };
 
   seasonStats.forEach((stat) => {
     const player = (stat.PLAYER || "").trim();
     const season = stat.SEASON;
     const rank = Number(stat.TOTAL_RANK);
-
     const isEndedSeason = endedSeasons.some((s) => s.TITLE === season);
 
     if (player === selectedUser && isEndedSeason && rank >= 1 && rank <= 3) {
-      badgeMap[rank].seasons.push(season);
+      rankBadgeMap[rank].push(season);
     }
   });
 
-  const badgesToShow = Object.entries(badgeMap)
-    .filter(([_, v]) => v.seasons.length > 0)
-    .map(([rank, v]) => ({
-      rank,
-      icon: v.icon,
-      seasons: v.seasons,
+  const rankBadges = Object.entries(rankBadgeMap)
+    .filter(([_, seasons]) => seasons.length)
+    .map(([rank, seasons]) => ({
+      type: rank,
+      count: seasons.length,
+      seasons,
     }));
 
-  // 후원/당첨 데이터 계산
-  const prizeBadges = prizeData
-    .filter(prize => {
-      const sponsorList = prize.sponsor?.split(",").map(x => x.trim()) || [];
-      const winnerList = prize.winner?.split(",").map(x => x.trim()) || [];
-      return sponsorList.includes(selectedUser) || winnerList.includes(selectedUser);
-    })
-    .map(prize => {
-      const sponsorList = prize.sponsor?.split(",").map(x => x.trim()) || [];
-      const winnerList = prize.winner?.split(",").map(x => x.trim()) || [];
+  // 후원/당첨 뱃지 계산
+  const prizeBadgeMap = {
+    sponsor: [],
+    gift: [],
+  };
 
-      return {
-        isSponsor: sponsorList.includes(selectedUser),
-        isWinner: winnerList.includes(selectedUser),
-      };
-    });
+  prizeData.forEach(prize => {
+    const sponsors = prize.sponsor?.split(",").map(s => s.trim()) || [];
+    const winners = prize.winner?.split(",").map(s => s.trim()) || [];
 
-  // 전체 뱃지 개수 계산
-  function shouldUseSmallBadge(count) {
-    return count >= 4;
-  }
-  
-  const totalBadgeCount = badgesToShow.reduce((acc, badge) => acc + badge.seasons.length, 0) + prizeBadges.length;
-  const isSmall = shouldUseSmallBadge(totalBadgeCount);
-  
-  const badgeSize = isSmall ? "w-8 h-8" : "w-14 h-14";
-  const textSize = isSmall ? "text-[8px]" : "text-[10px]";
+    if (sponsors.includes(selectedUser)) prizeBadgeMap.sponsor.push(prize.season);
+    if (winners.includes(selectedUser)) prizeBadgeMap.gift.push(prize.season);
+  });
+
+  const prizeBadges = Object.entries(prizeBadgeMap)
+    .filter(([_, seasons]) => seasons.length)
+    .map(([type, seasons]) => ({
+      type,
+      count: seasons.length,
+      seasons,
+    }));
 
   return (
     <div className="ml-30">
-      <h3 className="text-xl text-white font-semibold mb-10 -mt-2">Awards</h3>
+      <div className="flex items-center justify-start mb-5 -mt-2 space-x-2">
+        <h3 className="text-xl text-white font-semibold">Awards</h3>
+        <button
+          onClick={() => setShowBadgeGuide(true)}
+          className="px-2 py-1 bg-gray-800 text-xs rounded hover:bg-gray-600 text-gray-300"
+        >
+          인장 업그레이드 보기
+        </button>
+      </div>
 
-      {totalBadgeCount > 0 ? (
-        <div className="flex flex-wrap gap-8">
-          {/* 랭킹 뱃지 */}
-          {badgesToShow.map((badge, idx) =>
-            badge.seasons.map((season, i) => (
-              <div key={`rank-${idx}-${i}`} className="flex flex-col items-center text-white">
-                <div className="flex flex-col items-center">
-                  <div className={`relative ${badgeSize}`}>
-                    <Image src={badge.icon} alt={`${badge.rank}등`} fill className="object-contain" />
-                  </div>
-                  <span className={`${textSize} text-yellow-300 mt-1 whitespace-nowrap`}>{season}</span>
+      {rankBadges.length + prizeBadges.length > 0 ? (
+        <div className="flex flex-col items-start gap-2">
+        {/* 🎖 상단: 1~3등 뱃지 */}
+        <div className="flex gap-4 justify-start items-center">
+          {rankBadges.map((badge, idx) => {
+            const level = getBadgeLevelByCount(badge.count);
+            return (
+              <div key={idx} className="flex items-center text-white relative group">
+                <div className="relative w-14 h-14">
+                  <Image
+                    src={`/icons/badge/${badge.type}_${level}.png`}
+                    alt={`${badge.type} badge`}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <span className="ml-2 text-yellow-300 text-lg font-bold">x{badge.count}</span>
+                <div className="absolute hidden group-hover:block bg-blue-700 text-white text-xs p-2 rounded left-1/2 -translate-x-1/2 mt-2 z-50 whitespace-nowrap">
+                  {badge.seasons.map((season, i) => (
+                    <div key={i}>{season}</div>
+                  ))}
                 </div>
               </div>
-            ))
-          )}
-
-          {/* 후원 / 당첨 뱃지 */}
-          {prizeBadges.map((prize, idx) => (
-            <div key={`prize-${idx}`} className="flex flex-col items-center text-white">
-              <div className="flex flex-row gap-4 items-end">
-                {prize.isSponsor && (
-                  <div className="flex flex-col items-center">
-                    <div className={`relative ${badgeSize}`}>
-                      <Image src="/icons/sponsor.png" alt="후원" fill className="object-contain" />
-                    </div>
-                    <span className={`${textSize} text-gray-300 mt-1 whitespace-nowrap`}>후원</span>
-                  </div>
-                )}
-                {prize.isWinner && (
-                  <div className="flex flex-col items-center">
-                    <div className={`relative ${badgeSize}`}>
-                      <Image src="/icons/gift.png" alt="당첨" fill className="object-contain" />
-                    </div>
-                    <span className={`${textSize} text-gray-300 mt-1 whitespace-nowrap`}>당첨</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+      
+        {/* 🎖 하단: 후원 + 당첨 뱃지 */}
+        <div className="flex gap-4 justify-start items-center">
+          {prizeBadges.map((badge, idx) => {
+            const level = getBadgeLevelByCount(badge.count);
+            const badgeName = badge.type === "sponsor" ? "후원" : "당첨";
+      
+            return (
+              <div key={idx} className="flex items-center text-white relative group">
+                <div className="relative w-14 h-14">
+                  <Image
+                    src={`/icons/badge/${badge.type}_${level}.png`}
+                    alt={`${badgeName} badge`}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <span className="ml-2 text-gray-300 text-lg font-bold">x{badge.count}</span>
+                <div className="absolute hidden group-hover:block bg-blue-700 text-white text-xs p-2 rounded left-1/2 -translate-x-1/2 mt-2 z-50 whitespace-nowrap">
+                  {badge.seasons.map((season, i) => (
+                    <div key={i}>{season}</div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      
+      
+      
+      
       ) : (
         <p className="text-gray-400 text-sm">획득한 뱃지가 없습니다.</p>
+      )}
+
+      {/* 인장 업그레이드 모달 */}
+      {showBadgeGuide && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+          <div className="relative w-[800px] bg-gray-900 rounded-lg p-6">
+            <button
+              onClick={() => setShowBadgeGuide(false)}
+              className="absolute top-3 right-3 text-white bg-red-500 rounded px-3 py-1 hover:bg-red-600"
+            >
+              닫기
+            </button>
+            <h2 className="text-white text-2xl mb-4 text-center">인장 업그레이드</h2>
+            <Image
+              src="/icons/etc/badge_upgrade.png"
+              alt="Badge Guide"
+              width={768}
+              height={929}
+              className="mx-auto"
+            />
+          </div>
+        </div>
       )}
     </div>
   );
