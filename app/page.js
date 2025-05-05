@@ -51,6 +51,13 @@ export default function HomePage() {
         "popup3",
         "width=509,height=800,left=0,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
       );
+
+      window.open(
+        "/popup2",
+        "popup4",
+        "width=406,height=406,left=509,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
+      );
+
     }
   }
     
