@@ -35,10 +35,14 @@ export default function DuoBalance() {
     setDuoData(data);
   
     const users = Array.from(
-      new Set(data.flatMap((row) => [row.PLAYER1, row.PLAYER2]))
-    );
-    setUserList(users);
-    setAvailableUsers(users);
+        new Set(
+          data
+            .filter((row) => row.WINRATE_RANK !== "" && row.TOTAL >= 5 && row.WINS >= 1)
+            .flatMap((row) => [row.PLAYER1, row.PLAYER2])
+        )
+      );
+      setUserList(users);
+      setAvailableUsers(users);      
   
     // ✅ 중복 제거 순서: 먼저 filter → 나중에 Set
     const rawSeasons = data.map((r) => r.SEASON).filter((s) => s !== "ALL");
@@ -59,47 +63,61 @@ export default function DuoBalance() {
   const selectUserA = (user) => {
     setSelectedUserA(user);
     setSelectedUserB("");
-    
+  
     const partners = duoData
-      .filter((row) => row.PLAYER1 === user || row.PLAYER2 === user)
+      .filter(
+        (row) =>
+          (row.PLAYER1 === user || row.PLAYER2 === user) &&
+          row.WINRATE_RANK !== "" &&
+          row.TOTAL >= 5 &&
+          row.WINS >= 1
+      )
       .map((row) => (row.PLAYER1 === user ? row.PLAYER2 : row.PLAYER1));
-
+  
     const uniquePartners = Array.from(new Set(partners));
-
-    // All 추가해서 availableUsers 갱신
+  
     setAvailableUsers(["All", ...uniquePartners]);
-  };
+  };  
 
   const filteredData = duoData
-    .filter((row) => {
-      if (!selectedUserA || !selectedUserB) return false;
+  .filter((row) => {
+    if (!selectedUserA || !selectedUserB) return false;
 
-      const seasonMatch =
-        selectedSeason === "ALL"
-            ? selectedUserB === "All"
-            ? row.SEASON === "ALL"        // ✅ 유저B도 All → 누적만!
-            : row.SEASON !== "ALL"        // ✅ 유저B는 특정 → 시즌별
-            : row.SEASON === selectedSeason;
+    const seasonMatch =
+      selectedSeason === "ALL"
+        ? selectedUserB === "All"
+          ? row.SEASON === "ALL"
+          : row.SEASON !== "ALL"
+        : row.SEASON === selectedSeason;
 
+    if (selectedUserB === "All") {
+      return (
+        (row.PLAYER1 === selectedUserA || row.PLAYER2 === selectedUserA) &&
+        seasonMatch
+      );
+    } else {
+      const pairMatch =
+        (row.PLAYER1 === selectedUserA && row.PLAYER2 === selectedUserB) ||
+        (row.PLAYER1 === selectedUserB && row.PLAYER2 === selectedUserA);
+      return pairMatch && seasonMatch;
+    }
+  })
+  .filter((row) => row.WINS > 0)
+  .sort((a, b) => {
+    const rankA = a.WINRATE_RANK === "" ? Infinity : a.WINRATE_RANK;
+    const rankB = b.WINRATE_RANK === "" ? Infinity : b.WINRATE_RANK;
+    return rankA - rankB;
+  });
 
-
-      if (selectedUserB === "All") {
-        // All 선택 → 첫 유저가 포함된 모든 듀오 기록
-        return (row.PLAYER1 === selectedUserA || row.PLAYER2 === selectedUserA) && seasonMatch;
-      } else {
-        // 특정 유저 선택 → A와 B 둘 다 매치
-        const pairMatch =
-          (row.PLAYER1 === selectedUserA && row.PLAYER2 === selectedUserB) ||
-          (row.PLAYER1 === selectedUserB && row.PLAYER2 === selectedUserA);
-
-        return pairMatch && seasonMatch;
-      }
-    })
-    .filter((row) => row.WINS > 0) // ✅ 승수 0이면 제외
-    .sort((a, b) => a.DUO_RANK - b.DUO_RANK);
-
-  const paginated = filteredData.slice((page - 1) * pageSize, page * pageSize);
-  const totalPages = Math.ceil(filteredData.length / pageSize);
+  const filtered = filteredData.filter(
+    (row) =>
+      row.WINRATE_RANK !== "" &&
+      row.TOTAL >= 5 &&
+      row.WINS >= 1
+  );
+    
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(filtered.length / pageSize);
 
   return (
     <div className="relative w-[900px] h-[1000px] mx-auto mt-20 text-white">
@@ -198,7 +216,13 @@ export default function DuoBalance() {
               </thead>
               <tbody>
                 {paginated.length > 0 ? (
-                  paginated.map((row, index) => {
+                  paginated.filter(
+                    (row) =>
+                      row.WINRATE_RANK !== "" &&
+                      row.TOTAL >= 5 &&
+                      row.WINS >= 1
+                  )
+                  .map((row, index) => {
                     const partner =
                       row.PLAYER1 === selectedUserA
                         ? row.PLAYER2
@@ -210,70 +234,81 @@ export default function DuoBalance() {
 
                         {index === 0 && (
                                 <td
-                                rowSpan={paginated.length}
+                                rowSpan={
+                                    paginated.filter(
+                                      (r) =>
+                                        r.WINRATE_RANK !== "" &&
+                                        r.TOTAL >= 5 &&
+                                        r.WINS >= 1
+                                    ).length
+                                  }
                                 className="p-2 font-bold text-yellow-400 text-center align-middle border-r border-gray-700"
                                 >
                                 {selectedUserA}
                                 </td>
                             )}
                         <td className="p-2">
-                          <TooltipWrapper
+                        <TooltipWrapper
                             content={
-                                <div className="flex flex-col gap-1 text-sm max-h-[250px] overflow-y-auto overflow-x-hidden px-2 py-1 break-words">
-
-                                    {/* ✅ 고정 제목 줄 */}
-                                    <div className="flex justify-between font-bold text-yellow-400 mb-1 pl-10">
-                                        <span>Duo</span>
-                                        <span>승수</span>
-                                    </div>
-
-                                    {/* 구분선 */}
+                                <div className="flex flex-col max-h-[250px] overflow-y-auto overflow-x-hidden px-3 py-2 space-y-2 text-white text-base">
+                                
+                                {/* ✅ 제목 */}
+                                <div className="flex justify-between font-bold text-yellow-400 mb-1 text-lg pl-10">
+                                                                    <span>Duo</span>
+                                                                    <span>승수</span>
+                                                                </div>
                                     <hr className="border-gray-600 mb-1" />
-                                  
-                                  {(() => {
+
+                                {/* ✅ 클래스 조합 리스트 */}
+                                <div className="space-y-1">
+                                    {(() => {
                                     const comboCounts = {};
                                     row.WIN_CLASS_LIST?.split(", ").forEach((combo) => {
-                                      comboCounts[combo] = (comboCounts[combo] || 0) + 1;
+                                        comboCounts[combo] = (comboCounts[combo] || 0) + 1;
                                     });
+
                                     return Object.entries(comboCounts)
-                                        .sort((a, b) => b[1] - a[1]) // ✅ count 기준 내림차순 정렬
+                                        .sort((a, b) => b[1] - a[1])
                                         .map(([combo, count], i) => {
-
-                                      const [classA, classB] = combo.split("/");
-                                      return (
-                                        <div key={`${combo}-${i}`} className="flex items-center gap-1">
-                                          <Image src={`/icons/classes/${classIconMap[classA]}.jpg`} alt={classA || "classA"} width={16} height={16} />
-                                          <span className="mr-1">{selectedUserA}</span>
-                                          <span>&</span>
-                                          <Image src={`/icons/classes/${classIconMap[classB]}.jpg`} alt={classB || "classB"} width={16} height={16} />
-                                          <span>{selectedUserB === "All" ? partner : selectedUserB}</span>
-                                          <span className="ml-1 text-gray-400"> {count}</span>
-                                        </div>
-                                      );
-                                    });
-                                  })()}
-
-                                    {/* 구분선 */}
-                                    <hr className="border-gray-600 mb-1" />
-
-                                    {/* ✅ All / 총 승수 요약 */}
-                                    <div className="flex justify-between text-gray-300 text-xs">
-                                    <span className="ml-1 text-yellow-400 font-semibold pl-10">All</span>
-                                    <span className="ml-1 text-yellow-400 font-semibold">{row.WINS}승</span>
-
-                                    </div>
+                                        const [classA, classB] = combo.split("/");
+                                        return (
+                                            <div key={`${combo}-${i}`} className="flex items-center gap-2">
+                                            <Image
+                                                src={`/icons/classes/${classIconMap[classA]}.jpg`}
+                                                alt={classA || "classA"}
+                                                width={18}
+                                                height={18}
+                                            />
+                                            <span>{selectedUserA}</span>
+                                            <span>&</span>
+                                            <Image
+                                                src={`/icons/classes/${classIconMap[classB]}.jpg`}
+                                                alt={classB || "classB"}
+                                                width={18}
+                                                height={18}
+                                            />
+                                            <span>{selectedUserB === "All" ? partner : selectedUserB}</span>
+                                            <span className="ml-2 text-yellow-400 font-semibold"> {count}</span>
+                                            </div>
+                                        );
+                                        });
+                                    })()}
                                 </div>
 
-                                
-                              }
-                          >
-                            <span>{partner}</span>
-                          </TooltipWrapper>
+                                {/* ✅ 총합 요약 */}
+                                <div className="border-t border-gray-600 pt-1 flex justify-between text-yellow-400 font-semibold text-base">
+                                    <span className="ml-1 text-yellow-400 font-semibold pl-10">All</span>
+                                    <span>{row.WINS}승</span>
+                                </div>
+                                </div>
+                            }
+                            >
+                            <span className="text-base">{partner}</span>
+                            </TooltipWrapper>
                         </td>
-                        <td className="p-2">{`${row.DUO_RANK}위`}</td>
+                        <td className="p-2">{`${row.WINRATE_RANK}위`}</td>
                         <td className="p-2">{row.SEASON}</td>
                       </tr>
-
                     );
                   })
                 ) : (
