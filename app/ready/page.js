@@ -686,13 +686,13 @@ export default function TeamPage() {
       </nav>
 
       <div className="flex flex-col items-center">
-        <h1 className="text-left text-4xl font-bold mt-6 mb-2 pr-115">
+        <h1 className="text-left text-4xl font-bold mt-10 mb-2 pr-115">
           * MMR 팀 생성 (
           <span className={`${playerCount === 8 ? "text-green-400" : "text-red-400"} font-bold`}>
             {playerCount} </span>
           / 8명)
         </h1>
-        <div className="flex items-center mr-[120px] mb-4">
+        <div className="flex items-center mr-[120px] mb-4 -mt-4">
           <button
             onMouseDown={() => setIsGuideButtonPressed(true)}
             onMouseUp={() => setIsGuideButtonPressed(false)}
