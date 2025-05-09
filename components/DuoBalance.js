@@ -250,10 +250,10 @@ export default function DuoBalance() {
                         <td className="p-2">
                         <TooltipWrapper
                             content={
-                                <div className="flex flex-col max-h-[250px] overflow-y-auto overflow-x-hidden px-3 py-2 space-y-2 text-white text-base">
+                                <div className="flex flex-col max-h-[300px] overflow-y-auto overflow-x-hidden px-3 py-2 space-y-2 text-white text-base">
                                 
                                 {/* ✅ 제목 */}
-                                <div className="flex justify-between font-bold text-yellow-400 mb-1 text-lg pl-10">
+                                <div className="flex justify-between font-bold mb-1 text-lg pl-10">
                                                                     <span>Duo</span>
                                                                     <span>승수</span>
                                                                 </div>
@@ -296,9 +296,9 @@ export default function DuoBalance() {
                                 </div>
 
                                 {/* ✅ 총합 요약 */}
-                                <div className="border-t border-gray-600 pt-1 flex justify-between text-yellow-400 font-semibold text-base">
-                                    <span className="ml-1 text-yellow-400 font-semibold pl-10">All</span>
-                                    <span>{row.WINS}승</span>
+                                <div className="border-t border-gray-600 pt-1 flex justify-between font-semibold text-base">
+                                    <span className="ml-1 font-semibold pl-10">All</span>
+                                    <span className="ml-1 text-yellow-400 font-semibold pl-10">{row.WINS}승</span>
                                 </div>
                                 </div>
                             }
