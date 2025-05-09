@@ -219,7 +219,7 @@ export default function TeamPage() {
       const top10 = players
         .filter(p => p.wins >= 1)
         .sort((a, b) => a.rank - b.rank)
-        .slice(0, 22);
+        .slice(0, 24);
       setLeaderboardTop10(top10);
       setIsTop10Loading(false);
     }).catch(err => console.error("랭킹 데이터 불러오기 실패:", err));
@@ -686,8 +686,8 @@ export default function TeamPage() {
       </nav>
 
       <div className="flex flex-col items-center">
-        <h1 className="text-left text-4xl font-bold mt-6 mb-2 pr-140">
-          *팀 생성 (
+        <h1 className="text-left text-4xl font-bold mt-6 mb-2 pr-115">
+          * MMR 팀 생성 (
           <span className={`${playerCount === 8 ? "text-green-400" : "text-red-400"} font-bold`}>
             {playerCount} </span>
           / 8명)
@@ -883,10 +883,10 @@ export default function TeamPage() {
 
         <div className="flex items-center mt-6 mb-2">
           <h1 className="text-left text-4xl font-bold">
-            *팀 생성 결과
+            * 팀 생성 결과
           </h1>
 
-          <div className="flex items-center gap-2 mr-4 pr-120 ml-5">
+          <div className="flex items-center gap-2 mr-4 pr-100 ml-5">
             {[
               { value: 3, label: "3선승" },
               { value: 4, label: "4선승" },
