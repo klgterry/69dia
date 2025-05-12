@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
+
+// SSR 비활성화된 동적 import
+const RouletteClient = dynamic(() => import("@/components/RouletteClient"), {
+  ssr: false,
+});
+
 
 // ✅ GAS API 호출: prize 데이터 가져오기
 async function fetchPrizeData() {
@@ -36,12 +44,56 @@ function Tooltip({ children, content, top, left, width }) {
       </div>
     );
   }
-  
+
+
+
+async function fetchUserSummary() {
+  const response = await fetch("/api/gasApi?action=getUserSummary");
+  if (!response.ok) throw new Error("요약 데이터를 가져오지 못했습니다.");
+  return await response.json(); // [{ SEASON, PLAYER, TOTAL_WINS, TOTAL_RANK, D_WINS, D_RANK, ... }]
+}
+
 export default function PrizePage() {
   const [prizeData, setPrizeData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const router = useRouter();
+  const [userSummary, setUserSummary] = useState([]);
+  const [selectedSeason, setSelectedSeason] = useState(null);
+  const [rouletteItems, setRouletteItems] = useState([]);
+
+  function getParticipantsBySeason(data, season) {
+  return data
+    .filter((row) => row.SEASON === season)
+    .map((row) => row.PLAYER);
+  }
+
+  const handleSpinRoulette = (season) => {
+    const participants = getParticipantsBySeason(userSummary, season);
+    console.log("🔍 시즌 참여자 목록:", participants);
+
+    // ✅ 모든 참가자가 유효한 string인지 필터링
+    const items = participants
+      .filter((name) => typeof name === "string" && name.trim() !== "")
+      .map((name) => ({ option: name }));
+
+    console.log("🎯 룰렛에 전달될 items:", items);
+
+    // ✅ 모든 항목이 `{ option: string }` 형태인지 확인
+    const isValid = Array.isArray(items) && items.every(item =>
+      item && typeof item.option === "string" && item.option.trim() !== ""
+    );
+
+    if (!isValid || items.length === 0) {
+      alert("해당 시즌의 유효한 참여자가 없습니다.");
+      return;
+    }
+
+    setRouletteItems(items);
+    setSelectedSeason(season);
+  };
+
+
 
   useEffect(() => {
     fetchPrizeData()
@@ -53,6 +105,9 @@ export default function PrizePage() {
         setError(error.message);
         setLoading(false);
       });
+
+      // ✅ userSummary도 함께 불러오기
+      fetchUserSummary().then((data) => setUserSummary(data));
   }, []);
 
   if (error) return <div>Error: {error}</div>;
@@ -169,6 +224,14 @@ export default function PrizePage() {
               >
                 {row.winner || "-"}
               </Tooltip>
+
+              <button
+                className="absolute right-[50px] top-[calc(50%-16px)] bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded shadow-md text-sm"
+                style={{ top: `${top + 15}px` }} // 위치 조절 필요
+                onClick={() => handleSpinRoulette(row.season)}
+              >
+                룰렛
+              </button>
             </div>
         );
         })}
@@ -181,6 +244,302 @@ export default function PrizePage() {
           <p>로딩 중...</p>
         </div>
       )}
+
+      {selectedSeason && (
+  <RouletteModal
+    season={selectedSeason}
+    participants={
+      userSummary
+        .filter((row) => row.SEASON === selectedSeason)
+        .map((row) => ({
+          name: row.PLAYER,
+          rank: Number(row.TOTAL_RANK || 999),
+        }))
+    }
+    onClose={() => setSelectedSeason(null)}
+  />
+)}
+
+    </div>
+  );
+}
+
+function RouletteModal({ season, participants, onClose }) {
+  const [minRank, setMinRank] = useState(1);
+  const [maxRank, setMaxRank] = useState(1);
+  const [ticketRanges, setTicketRanges] = useState([{ from: 1, to: 10, count: 1 }]);
+  const [extraInput, setExtraInput] = useState("");
+  const [excludeWinners, setExcludeWinners] = useState(true);
+  const [winnerList, setWinnerList] = useState([]);
+  const [rouletteItems, setRouletteItems] = useState([]);
+  const [spinningKey, setSpinningKey] = useState(0);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [appliedUsers, setAppliedUsers] = useState([]);
+  const [winner, setWinner] = useState(null);
+  const [shouldSpin, setShouldSpin] = useState(false);
+
+  useEffect(() => {
+    if (!winner) return; // 당첨자 없으면 이벤트 등록 X
+
+    const handleClick = () => {
+      setWinner(null); // 클릭하면 당첨자 화면 제거
+    };
+
+    document.addEventListener("mousedown", handleClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, [winner]);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, []);
+
+  useEffect(() => {
+    const matched = participants
+      .filter((user) => user.rank >= minRank && user.rank <= maxRank)
+      .sort((a, b) => a.rank - b.rank);
+    setFilteredUsers(matched);
+  }, [participants, minRank, maxRank]);
+
+  useEffect(() => {
+    console.log("🧪 filteredUsers:", filteredUsers);
+    if (filteredUsers.length > 0) {
+      const defaultItems = filteredUsers.map((user) => ({
+        option: user.name,
+      }));
+      setRouletteItems(defaultItems);
+    }
+  }, [filteredUsers]);
+
+    // 티켓 설정 로직
+  const buildRouletteItems = () => {
+    let items = [];
+    let matchedUsers = [];
+
+    // ✅ filteredUsers 기준으로 룰렛 구성
+    filteredUsers.forEach((user) => {
+      let count = 1;
+
+      for (const range of ticketRanges) {
+        if (user.rank >= range.from && user.rank <= range.to) {
+          count = range.count;
+          break;
+        }
+      }
+
+      for (let i = 0; i < count; i++) {
+        items.push({ option: user.name });
+      }
+
+      matchedUsers.push({ name: user.name, rank: user.rank, count });
+    });
+
+    setAppliedUsers(matchedUsers);
+
+    // ➕ 추가 참여자 처리
+    extraInput
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .forEach((entry) => {
+        const [name, rawCount] = entry.split(":");
+        const extraCount = parseInt(rawCount || "1");
+        if (name?.trim() && !isNaN(extraCount) && extraCount > 0) {
+          for (let i = 0; i < extraCount; i++) {
+            items.push({ option: name.trim() });
+          }
+        }
+      });
+
+    // 🚫 당첨자 제외
+    if (excludeWinners) {
+      items = items.filter((item) => !winnerList.includes(item.option));
+    }
+
+    // ✅ 섞기 추가 (Fisher-Yates 알고리즘)
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+
+    setRouletteItems(items);
+    setShouldSpin(false); // 먼저 false로 초기화
+    setTimeout(() => {
+      setShouldSpin(true); // 짧은 딜레이 후 다시 true → 변화 감지
+    }, 50);
+  };
+
+  const handleSpinComplete = (winner) => {
+    setWinnerList((prev) => [...prev, winner]);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center overflow-auto">
+      <div className="bg-white p-6 rounded-lg shadow-lg text-black w-[600px] relative space-y-4">
+        <button
+          className="absolute top-2 right-3 text-xl font-bold text-gray-500 hover:text-black"
+          onClick={onClose}
+        >
+          ✕
+        </button>
+
+        <h2 className="text-2xl font-bold mb-2">🎯 시즌 {season} 룰렛 설정</h2>
+
+        {/* 랭킹 범위 */}
+        
+
+        {filteredUsers.length > 0 && (
+          <div className="mt-4 text-sm text-gray-100 bg-gray-800 p-4 rounded">
+            <div className="flex gap-2 mb-2">
+              <label>랭킹 범위:</label>
+              <input type="number" value={minRank} onChange={(e) => setMinRank(Number(e.target.value))} className="border px-2 w-16" />
+              ~
+              <input type="number" value={maxRank} onChange={(e) => setMaxRank(Number(e.target.value))} className="border px-2 w-16" />
+            </div>
+
+            {/* ✅ 6개씩 묶어서 줄로 표시 */}
+            <div className="flex flex-wrap gap-2">
+              {filteredUsers.map((user, idx) => (
+                <div
+                  key={idx}
+                  className="px-2 py-1 bg-gray-700 text-white text-sm rounded text-left min-w-[90px] flex-1 basis-[calc(16.6%-0.5rem)] max-w-[calc(16.6%-0.5rem)]"
+                >
+                  {user.rank}위 {user.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 티켓 설정 */}
+        <div>
+          <label>🎟️ 랭킹별 추첨장 수:</label>
+          {ticketRanges.map((range, idx) => (
+            <div key={idx} className="flex gap-2 items-center my-1">
+              <input type="number" value={range.from} onChange={(e) => {
+                const newRanges = [...ticketRanges];
+                newRanges[idx].from = Number(e.target.value);
+                setTicketRanges(newRanges);
+              }} className="border px-2 w-16" />
+              ~
+              <input type="number" value={range.to} onChange={(e) => {
+                const newRanges = [...ticketRanges];
+                newRanges[idx].to = Number(e.target.value);
+                setTicketRanges(newRanges);
+              }} className="border px-2 w-16" />
+              장수:
+              <input type="number" value={range.count} onChange={(e) => {
+                const newRanges = [...ticketRanges];
+                newRanges[idx].count = Number(e.target.value);
+                setTicketRanges(newRanges);
+              }} className="border px-2 w-16" />
+              <button onClick={() => {
+                const newRanges = ticketRanges.filter((_, i) => i !== idx);
+                setTicketRanges(newRanges);
+              }} className="text-red-600 ml-2">삭제</button>
+            </div>
+          ))}
+          <button onClick={() => setTicketRanges([...ticketRanges, { from: 1, to: 10, count: 1 }])} className="mt-1 text-sm text-blue-600">
+            + 구간 추가
+          </button>
+        </div>
+
+        {/* 추가 참여자 */}
+        <div>
+          <label>👥 추가 참여자 (형식: 이름:개수,이름2:개수):</label>
+          <textarea value={extraInput} onChange={(e) => setExtraInput(e.target.value)} className="border w-full h-12 p-2" />
+        </div>
+
+        {/* 제외 여부 */}
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={excludeWinners} onChange={(e) => setExcludeWinners(e.target.checked)} />
+          당첨자는 다음 추첨에서 제외
+        </label>
+
+        <div className="flex justify-end gap-4 mt-4">
+          <button
+            onClick={() => {
+              setWinner(null);
+              buildRouletteItems();
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            룰렛 돌리기
+          </button>
+          <button
+            onClick={() => {
+              if (rouletteItems.length === 0) {
+                alert("돌릴 참가자가 없습니다!");
+                return;
+              }
+
+              // 새 index 재계산
+              const index = Math.floor(Math.random() * rouletteItems.length);
+              setWinner(null);
+              setShouldSpin(false);
+              setSpinningKey(prev => prev + 1); // ✅ 리셋 트리거
+              setTimeout(() => {
+                setShouldSpin(true);
+              }, 50);
+            }}
+
+            className="bg-gray-400 text-black px-4 py-2 rounded"
+          >
+            다시 돌리기
+          </button>
+        </div>
+
+        <div className="w-full h-[500px] flex items-center justify-center overflow-hidden">
+          <RouletteClient
+            key={spinningKey}
+            items={rouletteItems}
+            shouldSpin={shouldSpin}
+            onComplete={(name) => {
+              setWinner(name); // ✅ 이것만 있어도 됩니다
+              handleSpinComplete(name);
+            }}
+          />
+        </div>
+        
+        {winner && (
+          <motion.div
+            initial={{ scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1.2, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 220, damping: 18 }}
+            className="absolute -mt-70 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 flex flex-col items-center bg-gradient-to-br from-yellow-400/90 to-pink-500/90 px-10 py-8 rounded-3xl shadow-2xl border-4 border-white"
+          >
+            <div className="text-black text-3xl font-extrabold tracking-wider mb-4 animate-pulse">🎉 당첨자!</div>
+
+            {/* 🔥 이미지 크기를 w-20 h-20으로 확대 */}
+            <div className="w-40 h-40 mb-3">
+              <UserProfileImage username={winner} />
+            </div>
+
+            <div className="text-white text-4xl font-black mt-2 drop-shadow-xl tracking-wide">{winner}</div>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function UserProfileImage({ username }) {
+  const [imgSrc, setImgSrc] = useState(`/icons/users/웹_${username}.jpg`);
+
+  return (
+    <div className="relative w-40 h-40 overflow-hidden">
+      <Image 
+        src={imgSrc} 
+        alt={username} 
+        fill 
+        className="object-contain" 
+        onError={() => setImgSrc("/icons/users/default.png")} // 기본 이미지 처리
+      />
     </div>
   );
 }
