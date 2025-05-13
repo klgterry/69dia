@@ -266,7 +266,7 @@ export default function PrizePage() {
 
 function RouletteModal({ season, participants, onClose }) {
   const [minRank, setMinRank] = useState(1);
-  const [maxRank, setMaxRank] = useState(1);
+  const [maxRank, setMaxRank] = useState(15);
   const [ticketRanges, setTicketRanges] = useState([{ from: 1, to: 10, count: 1 }]);
   const [extraInput, setExtraInput] = useState("");
   const [excludeWinners, setExcludeWinners] = useState(true);
@@ -277,6 +277,16 @@ function RouletteModal({ season, participants, onClose }) {
   const [appliedUsers, setAppliedUsers] = useState([]);
   const [winner, setWinner] = useState(null);
   const [shouldSpin, setShouldSpin] = useState(false);
+
+  const handleMinRankChange = (e) => {
+    const value = e.target.value;
+    setMinRank(value === "" ? 1 : Number(value)); // 빈값일 때 기본값 1
+  };
+
+  const handleMaxRankChange = (e) => {
+    const value = e.target.value;
+    setMaxRank(value === "" ? 15 : Number(value)); // 빈값일 때 기본값 15
+  };
 
   useEffect(() => {
     if (!winner) return; // 당첨자 없으면 이벤트 등록 X
@@ -397,9 +407,19 @@ function RouletteModal({ season, participants, onClose }) {
           <div className="mt-4 text-sm text-gray-100 bg-gray-800 p-4 rounded">
             <div className="flex gap-2 mb-2">
               <label>랭킹 범위:</label>
-              <input type="number" value={minRank} onChange={(e) => setMinRank(Number(e.target.value))} className="border px-2 w-16" />
+              <input 
+                type="number" 
+                value={minRank === '' ? 1 : minRank}  // 빈값일 때 기본값 1
+                onChange={handleMinRankChange} 
+                className="border px-2 w-16" 
+              />
               ~
-              <input type="number" value={maxRank} onChange={(e) => setMaxRank(Number(e.target.value))} className="border px-2 w-16" />
+              <input 
+                type="number" 
+                value={maxRank === '' ? 100 : maxRank}  // 빈값일 때 기본값 100
+                onChange={handleMaxRankChange} 
+                className="border px-2 w-16" 
+              />
             </div>
 
             {/* ✅ 6개씩 묶어서 줄로 표시 */}
@@ -494,7 +514,7 @@ function RouletteModal({ season, participants, onClose }) {
           </button>
         </div>
 
-        <div className="w-full h-[500px] flex items-center justify-center overflow-hidden">
+        <div className="w-full h-[600px] flex items-center justify-center overflow-hidden">
           <RouletteClient
             key={spinningKey}
             items={rouletteItems}

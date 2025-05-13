@@ -60,34 +60,29 @@ export default function RouletteClient({ items, onComplete, shouldSpin }) {
 
   return (
     <div className="relative w-full h-[500px] flex items-center justify-center">
-  {/* 🌈 무지개 회전 효과: 룰렛이 돌 때만 나타남 */}
-   {shouldSpin && (
-    <div className="absolute w-[500px] h-[500px] rounded-full z-40 bg-rainbow opacity-50 blur-md animate-twinkle-strong mix-blend-screen" />
-
-  )}
 
   {/* 🎯 실제 룰렛은 위에 덮음 */}
   <div className="relative z-20">
     <Wheel
-    mustStartSpinning={shouldSpin} // ✅ 외부 트리거로 조정
-  prizeNumber={prizeIndex}
-  data={items}
-  backgroundColors={["#1e90ff", "#ff6347", "#32cd32", "#ffa500"]}
-  textColors={["#fff"]}
-  fontSize={22}
-  textDistance={65}
-  outerBorderColor="#fff"
-  outerBorderWidth={6}
-  radiusLineColor="#ddd"
-  radiusLineWidth={1}
-  spinDuration={1.2}
+      mustStartSpinning={shouldSpin} // ✅ 외부 트리거로 조정
+      prizeNumber={prizeIndex}
+      data={items}
+      backgroundColors={["#1e90ff", "#ff6347", "#32cd32", "#ffa500"]}
+      textColors={["#fff"]}
+      fontSize={26}
+      textDistance={75}
+      outerBorderColor="#fff"
+      outerBorderWidth={6}
+      radiusLineColor="#ddd"
+      radiusLineWidth={1}
+      spinDuration={1}
       onStopSpinning={() => {
         const selected = items[prizeIndex]?.option;
         console.log("🎉 룰렛 종료! 당첨자:", selected);
         setWinner(selected);
         setMustStartSpinning(false);
         if (onComplete) onComplete(selected);
-      }}
+    }}
     />
   </div>
 </div>
