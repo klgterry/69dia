@@ -390,7 +390,7 @@ function RouletteModal({ season, participants, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center overflow-auto">
-      <div className="bg-white p-6 rounded-lg shadow-lg text-black w-[600px] relative space-y-4">
+      <div className="bg-white p-6 rounded-lg shadow-lg text-black w-[600px] h-[1000px] relative space-y-4 mt-30">
         <button
           className="absolute top-2 right-3 text-xl font-bold text-gray-500 hover:text-black"
           onClick={onClose}
@@ -514,7 +514,7 @@ function RouletteModal({ season, participants, onClose }) {
           </button>
         </div>
 
-        <div className="w-full h-[600px] flex items-center justify-center overflow-hidden">
+        <div className="h-[600px] flex items-center justify-center overflow-hidden -mt-20">
           <RouletteClient
             key={spinningKey}
             items={rouletteItems}
