@@ -97,22 +97,6 @@ function calculateGlobalDuoRanks(duoStats) {
   return ranked;
 }
 
-function getTopUserDuosInAllSeason(duoStats, selectedUser) {
-  const rankedDuos = calculateGlobalDuoRanks(duoStats);
-
-  const filtered = rankedDuos
-    .filter(entry => entry.players.includes(selectedUser))
-    .map(entry => ({
-      partner: entry.players.find(p => p !== selectedUser),
-      WINS: entry.WINS,
-      DUO_RANK: entry.DUO_RANK,
-    }))
-    .sort((a, b) => b.WINS - a.WINS)
-    .slice(0, 5);
-
-  return filtered;
-}
-
 export default function UserPage() {
   const [userList, setUserList] = useState([]);
   const [seasonList, setSeasonList] = useState([]);
@@ -270,9 +254,18 @@ export default function UserPage() {
       );
   
       if (selectedSeason.TITLE === "ALL") {
-        const topUserDuos = getTopUserDuosInAllSeason(data, selectedUser);
-        setDuoStats(topUserDuos);
-      } else {
+        const filtered = data.filter(row =>
+          row.SEASON === "ALL" &&
+          (row.PLAYER1 === selectedUser || row.PLAYER2 === selectedUser)
+        ).map(row => ({
+          partner: row.PLAYER1 === selectedUser ? row.PLAYER2 : row.PLAYER1,
+          WINS: row.WINS,
+          DUO_RANK: row.DUO_RANK,
+        })).sort((a, b) => b.WINS - a.WINS).slice(0, 5);
+
+        setDuoStats(filtered);
+      }
+      else {
         const processed = filtered
           .filter(row => row.PLAYER1 === selectedUser || row.PLAYER2 === selectedUser)
           .map(row => ({
