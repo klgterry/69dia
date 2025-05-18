@@ -35,11 +35,36 @@ export default function DuoBalance() {
         row.WINRATE_RANK &&
         row.WINS > 0
       )
-      .sort((a, b) => a.WINRATE_RANK - b.WINRATE_RANK); // ✅ DUO_RANK 기준 정렬
+      .sort((a, b) => a.WINRATE_RANK - b.WINRATE_RANK);
+
+    const ranked = assignDisplayRanks(filtered);
 
     const start = (rankingPage - 1) * rankingPageSize;
-    return filtered.slice(start, start + rankingPageSize);
+    return ranked.slice(start, start + rankingPageSize);
   };
+
+  const assignDisplayRanks = (data) => {
+    let displayRank = 1;
+    let prevRank = null;
+    let offset = 0;
+
+    return data.map((row, idx) => {
+      if (row.WINRATE_RANK !== prevRank) {
+        displayRank = idx + 1;
+        prevRank = row.WINRATE_RANK;
+        offset = 0;
+      } else {
+        offset++;
+      }
+
+      return {
+        ...row,
+        DISPLAY_RANK: displayRank,
+      };
+    });
+  };
+
+
 
   const totalRankingPages = Math.ceil(
     duoData.filter(row =>
@@ -223,147 +248,144 @@ export default function DuoBalance() {
         )}
 
         {!selectedUserA && !selectedUserB && (
-  <>
-    {/* 시즌 드롭다운 */}
-    <div className="w-full flex justify-end pr-4 mt-6">
-      <select
-        value={rankingSeason}
-        onChange={(e) => {
-          setRankingSeason(e.target.value);
-          setRankingPage(1); // 시즌 바꾸면 1페이지로 초기화
-        }}
-        className="bg-gray-700 p-2 rounded"
-      >
-        {seasonList.map((season) => (
-          <option key={season} value={season}>
-            {season}
-          </option>
-        ))}
-      </select>
-    </div>
-
-    {/* 타이틀 */}
-    <h3 className="text-2xl font-bold text-white mb-4 -mt-5">
-      🔥 DUO POWER RANKING (Top 100) - <span className="text-yellow-400">{rankingSeason}</span>
-    </h3>
-
-    {/* 카드형 랭킹 리스트 */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {getPaginatedDuoRankings().map((row, index) => {
-        const globalRank = (rankingPage - 1) * rankingPageSize + index + 1;
-        const duoPlayers = [row.PLAYER1, row.PLAYER2].sort((a, b) => a.localeCompare(b, "ko"));
-        const [playerA, playerB] = duoPlayers;
-
-        return (
-          <TooltipWrapper
-            key={`${row.PLAYER1}-${row.PLAYER2}-${index}`}
-            content={
-              <div className="flex flex-col max-h-[300px] overflow-y-auto overflow-x-hidden px-3 py-2 space-y-2 text-white text-base">
-                {/* ✅ 제목 */}
-                <div className="flex justify-between font-bold mb-1 text-lg pl-10">
-                  <span>Duo</span>
-                  <span>승수</span>
-                </div>
-                <hr className="border-gray-600 mb-1" />
-
-                {/* ✅ 클래스 조합 리스트 */}
-                <div className="space-y-1">
-                  {(() => {
-                    const comboCounts = {};
-                    row.WIN_CLASS_LIST?.split(", ").forEach((combo) => {
-                      comboCounts[combo] = (comboCounts[combo] || 0) + 1;
-                    });
-
-                    return Object.entries(comboCounts)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([combo, count], i) => {
-                        const [classA = "", classB = ""] = combo?.split("/") || [];
-                        return (
-                          <div key={`${combo}-${i}`} className="flex items-center gap-2">
-                            <Image src={`/icons/classes/${classIconMap[classA]}.jpg`} alt={classA} width={18} height={18} />
-                            <span>{playerA}</span>
-                            <span>&</span>
-                            <Image src={`/icons/classes/${classIconMap[classB]}.jpg`} alt={classB} width={18} height={18} />
-                            <span>{playerB}</span>
-                            <span className="ml-2 text-yellow-400 font-semibold">{count}</span>
-                          </div>
-                        );
-                      });
-                  })()}
-                </div>
-
-                {/* ✅ 총합 요약 */}
-                <div className="border-t border-gray-600 pt-1 flex justify-between font-semibold text-base">
-                  <span className="ml-1 font-semibold pl-10">All</span>
-                  <span className="ml-1 text-yellow-400 font-semibold pl-10">{row.WINS}승</span>
-                </div>
-              </div>
-            }
-          >
-            <div className="relative bg-gray-800 rounded-lg p-4 flex flex-col items-center shadow-md">
-              <div className="mb-2 h-12">
-                {globalRank <= 3 ? (
-                  <div className="relative w-12 h-12 mx-auto">
-                    <Image
-                      src={`/icons/rank/${globalRank}.png`}
-                      alt={`Rank ${globalRank}`}
-                      fill
-                      className="object-contain"
-                    />
-                  </div>
-                ) : (
-                  <p className="text-yellow-300 font-bold text-lg text-center">{globalRank}위</p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 whitespace-nowrap overflow-hidden">
-                {duoPlayers.map((player, idx) => (
-                  <div key={idx} className="flex items-center gap-1 whitespace-nowrap">
-                    <div className="relative w-6 h-6 rounded-full overflow-hidden border border-gray-500 shrink-0">
-                      <Image
-                        src={`/icons/users/웹_${player}.jpg`}
-                        alt={player}
-                        fill
-                        className="object-cover"
-                        onError={(e) => (e.currentTarget.src = "/icons/users/default.png")}
-                      />
-                    </div>
-                    <span className="whitespace-nowrap">{player}</span>
-                    {idx === 0 && <span className="mx-1 text-gray-400">&</span>}
-                  </div>
+          <>
+            {/* 시즌 드롭다운 */}
+            <div className="w-full flex justify-end pr-4 mt-6">
+              <select
+                value={rankingSeason}
+                onChange={(e) => {
+                  setRankingSeason(e.target.value);
+                  setRankingPage(1); // 시즌 바꾸면 1페이지로 초기화
+                }}
+                className="bg-gray-700 p-2 rounded"
+              >
+                {seasonList.map((season) => (
+                  <option key={season} value={season}>
+                    {season}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
-          </TooltipWrapper>
-        );
-      })}
 
+            {/* 타이틀 */}
+            <h3 className="text-2xl font-bold text-white mb-4 -mt-5">
+              🔥 DUO POWER RANKING (Top 100) - <span className="text-yellow-400">{rankingSeason}</span>
+            </h3>
 
+            {/* 카드형 랭킹 리스트 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {getPaginatedDuoRankings().map((row, index) => {
+                const globalRank = (rankingPage - 1) * rankingPageSize + index + 1;
+                const duoPlayers = [row.PLAYER1, row.PLAYER2].sort((a, b) => a.localeCompare(b, "ko"));
+                const [playerA, playerB] = duoPlayers;
 
-    </div>
+                return (
+                  <TooltipWrapper
+                    key={`${row.PLAYER1}-${row.PLAYER2}-${index}`}
+                    content={
+                      <div className="flex flex-col max-h-[300px] overflow-y-auto overflow-x-hidden px-3 py-2 space-y-2 text-white text-base">
+                        {/* ✅ 제목 */}
+                        <div className="flex justify-between font-bold mb-1 text-lg pl-10">
+                          <span>Duo</span>
+                          <span>승수</span>
+                        </div>
+                        <hr className="border-gray-600 mb-1" />
 
-    {/* 페이지네이션 */}
-    <div className="flex justify-center items-center gap-4 mt-1">
-      <button
-        disabled={rankingPage === 1}
-        onClick={() => setRankingPage(rankingPage - 1)}
-        className="px-4 py-1 bg-gray-700 rounded disabled:opacity-50"
-      >
-        &lt; PRE
-      </button>
-      <span className="text-white">{rankingPage} / {totalRankingPages}</span>
-      <button
-        disabled={rankingPage === totalRankingPages}
-        onClick={() => setRankingPage(rankingPage + 1)}
-        className="px-4 py-1 bg-gray-700 rounded disabled:opacity-50"
-      >
-        NEXT &gt;
-      </button>
-    </div>
-  </>
-)}
+                        {/* ✅ 클래스 조합 리스트 */}
+                        <div className="space-y-1">
+                          {(() => {
+                            const comboCounts = {};
+                            row.WIN_CLASS_LIST?.split(", ").forEach((combo) => {
+                              comboCounts[combo] = (comboCounts[combo] || 0) + 1;
+                            });
 
+                            return Object.entries(comboCounts)
+                              .sort((a, b) => b[1] - a[1])
+                              .map(([combo, count], i) => {
+                                const [classA = "", classB = ""] = combo?.split("/") || [];
+                                return (
+                                  <div key={`${combo}-${i}`} className="flex items-center gap-2">
+                                    <Image src={`/icons/classes/${classIconMap[classA]}.jpg`} alt={classA} width={18} height={18} />
+                                    <span>{playerA}</span>
+                                    <span>&</span>
+                                    <Image src={`/icons/classes/${classIconMap[classB]}.jpg`} alt={classB} width={18} height={18} />
+                                    <span>{playerB}</span>
+                                    <span className="ml-2 text-yellow-400 font-semibold">{count}</span>
+                                  </div>
+                                );
+                              });
+                          })()}
+                        </div>
 
+                        {/* ✅ 총합 요약 */}
+                        <div className="border-t border-gray-600 pt-1 flex justify-between font-semibold text-base">
+                          <span className="ml-1 font-semibold pl-10">All</span>
+                          <span className="ml-1 text-yellow-400 font-semibold pl-10">{row.WINS}승</span>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <div className="relative bg-gray-800 rounded-lg p-4 flex flex-col items-center shadow-md">
+                      <div className="mb-2 h-12">
+                        {row.WINRATE_RANK <= 3 ? (
+                          <div className="relative w-12 h-12 mx-auto">
+                            <Image
+                              src={`/icons/rank/${row.WINRATE_RANK}.png`}
+                              alt={`Rank ${row.WINRATE_RANK}`}
+                              fill
+                              className="object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-yellow-300 font-bold text-lg text-center">
+                            {row.WINRATE_RANK}위
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 whitespace-nowrap overflow-hidden">
+                        {duoPlayers.map((player, idx) => (
+                          <div key={idx} className="flex items-center gap-1 whitespace-nowrap">
+                            <div className="relative w-6 h-6 rounded-full overflow-hidden border border-gray-500 shrink-0">
+                              <Image
+                                src={`/icons/users/웹_${player}.jpg`}
+                                alt={player}
+                                fill
+                                className="object-cover"
+                                onError={(e) => (e.currentTarget.src = "/icons/users/default.png")}
+                              />
+                            </div>
+                            <span className="whitespace-nowrap">{player}</span>
+                            {idx === 0 && <span className="mx-1 text-gray-400">&</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </TooltipWrapper>
+                );
+              })}
+            </div>
+
+            {/* 페이지네이션 */}
+            <div className="flex justify-center items-center gap-4 mt-1">
+              <button
+                disabled={rankingPage === 1}
+                onClick={() => setRankingPage(rankingPage - 1)}
+                className="px-4 py-1 bg-gray-700 rounded disabled:opacity-50"
+              >
+                &lt; PRE
+              </button>
+              <span className="text-white">{rankingPage} / {totalRankingPages}</span>
+              <button
+                disabled={rankingPage === totalRankingPages}
+                onClick={() => setRankingPage(rankingPage + 1)}
+                className="px-4 py-1 bg-gray-700 rounded disabled:opacity-50"
+              >
+                NEXT &gt;
+              </button>
+            </div>
+          </>
+        )}
 
         {/* 결과 테이블 */}
         {selectedUserA && selectedUserB && (
