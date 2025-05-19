@@ -212,27 +212,19 @@ export default function UserPage() {
 
   useEffect(() => {
     if (!selectedUser || !selectedSeason?.TITLE || seasonList.length === 0) return;
-  
+
     fetchUserDuoStats().then((data) => {
       let filtered = data.filter(row =>
         selectedSeason.TITLE === "ALL" || row.SEASON === selectedSeason.TITLE
       );
-  
-      if (selectedSeason.TITLE === "ALL") {
-        const filtered = data.filter(row =>
-          row.SEASON === "ALL" &&
-          (row.PLAYER1 === selectedUser || row.PLAYER2 === selectedUser)
-        ).map(row => ({
-          partner: row.PLAYER1 === selectedUser ? row.PLAYER2 : row.PLAYER1,
-          WINS: row.WINS,
-          DUO_RANK: row.DUO_RANK,
-        })).sort((a, b) => b.WINS - a.WINS).slice(0, 5);
 
-        setDuoStats(filtered);
-      }
-      else {
-        const processed = filtered
-          .filter(row => row.PLAYER1 === selectedUser || row.PLAYER2 === selectedUser)
+      if (selectedSeason.TITLE === "ALL") {
+        const filteredAll = data
+          .filter(row =>
+            row.SEASON === "ALL" &&
+            (row.PLAYER1 === selectedUser || row.PLAYER2 === selectedUser)
+          )
+          .filter(row => row.WINS > 0) // ✅ 0승 제외
           .map(row => ({
             partner: row.PLAYER1 === selectedUser ? row.PLAYER2 : row.PLAYER1,
             WINS: row.WINS,
@@ -240,11 +232,27 @@ export default function UserPage() {
           }))
           .sort((a, b) => b.WINS - a.WINS)
           .slice(0, 5);
-  
+
+        setDuoStats(filteredAll);
+      } else {
+        const processed = filtered
+          .filter(row => 
+            (row.PLAYER1 === selectedUser || row.PLAYER2 === selectedUser) &&
+            row.WINS > 0 // ✅ 0승 제외
+          )
+          .map(row => ({
+            partner: row.PLAYER1 === selectedUser ? row.PLAYER2 : row.PLAYER1,
+            WINS: row.WINS,
+            DUO_RANK: row.DUO_RANK,
+          }))
+          .sort((a, b) => b.WINS - a.WINS)
+          .slice(0, 5);
+
         setDuoStats(processed);
       }
     });
   }, [selectedUser, selectedSeason?.TITLE, seasonList.length]);
+
   
   useEffect(() => {
     if (!selectedUser) return;
