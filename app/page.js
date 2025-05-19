@@ -111,7 +111,7 @@ export default function HomePage() {
   }, [selectedSeason]);
   
   // 👇 이건 .map() 위쪽에 추가해줘 (JSX 밖에서)
-  const filteredPlayers = leaderboard.filter((player) => player.rank <= 20);
+  const filteredPlayers = leaderboard.filter((player) => player.rank <= 25);
   const fiveWinsOrMore = filteredPlayers.filter((player) => player.wins >= 5);
   const oneWinOrMore = filteredPlayers.filter((player) => player.wins >= 1);
 
@@ -153,19 +153,16 @@ export default function HomePage() {
             />
           ))}
       </nav>
-
-      {/* 타이틀 영역 */}
-      {/*<h1 className="text-center text-4xl font-bold mt-6 mb-4">69 내전기록실</h1>*/}
-      <h1 className="text-center text-2xl md:text-4xl font-bold mt-6 mb-4">69 내전기록실</h1>
-      
+      {/* 타이틀 영역 */}     
       {/*<div className="relative w-full h-60">*/}
-      <div className="relative w-full h-40 md:h-60">
-
+      <div className="w-full flex justify-center mt-10">
         <Image 
           src="/icons/banner.png" 
-          alt="길드 로고" 
-          fill 
-          className="object-contain rounded-lg" 
+          alt="길드 로고"
+          width={0}
+          height={0}
+          sizes="100vw"
+          className="w-full max-w-[770px] h-auto object-contain rounded-lg"
         />
       </div>
       

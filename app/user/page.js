@@ -62,41 +62,6 @@ async function fetchLeaderboardForAllSeason() {
   return data; // { players: [...] }
 }
 
-function calculateGlobalDuoRanks(duoStats) {
-  const merged = {};
-
-  for (const row of duoStats) {
-    const [a, b] = [row.PLAYER1, row.PLAYER2].sort();
-    const key = `${a}-${b}`;
-
-    if (!merged[key]) {
-      merged[key] = {
-        key,
-        players: [a, b],
-        WINS: row.WINS,
-      };
-    } else {
-      merged[key].WINS += row.WINS;
-    }
-  }
-
-  // ✅ 승수 기준 정렬
-  const ranked = Object.values(merged).sort((a, b) => b.WINS - a.WINS);
-
-  // ✅ 동점 랭크 부여
-  let rank = 1;
-  ranked.forEach((entry, index) => {
-    if (index > 0 && entry.WINS === ranked[index - 1].WINS) {
-      entry.DUO_RANK = ranked[index - 1].DUO_RANK;
-    } else {
-      entry.DUO_RANK = rank;
-    }
-    rank++;
-  });
-
-  return ranked;
-}
-
 export default function UserPage() {
   const [userList, setUserList] = useState([]);
   const [seasonList, setSeasonList] = useState([]);
@@ -914,10 +879,6 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
           })}
         </div>
       </div>
-      
-      
-      
-      
       ) : (
         <p className="text-gray-400 text-sm">획득한 뱃지가 없습니다.</p>
       )}

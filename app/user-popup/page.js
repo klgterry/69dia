@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import UserFullHistory from "@/components/UserFullHistory";
 import { useSearchParams } from "next/navigation"; // 맨 위에 추가
-
 
 // ✅ GAS API
 async function fetchUserList() {
@@ -61,53 +59,6 @@ async function fetchLeaderboardForAllSeason() {
 
   return data; // { players: [...] }
 }
-
-function calculateGlobalDuoRanks(duoStats) {
-  const merged = {};
-
-  for (const row of duoStats) {
-    const [a, b] = [row.PLAYER1, row.PLAYER2].sort();
-    const key = `${a}-${b}`;
-
-    if (!merged[key]) {
-      merged[key] = {
-        key,
-        players: [a, b],
-        WINS: row.WINS,
-      };
-    } else {
-      merged[key].WINS += row.WINS;
-    }
-  }
-
-  // ✅ 승수 기준 정렬 후 랭크 부여
-  const ranked = Object.values(merged)
-    .sort((a, b) => b.WINS - a.WINS)
-    .map((entry, index) => ({
-      ...entry,
-      DUO_RANK: index + 1,
-    }));
-
-  return ranked;
-}
-
-function getTopUserDuosInAllSeason(duoStats, selectedUser) {
-  const rankedDuos = calculateGlobalDuoRanks(duoStats);
-
-  const filtered = rankedDuos
-    .filter(entry => entry.players.includes(selectedUser))
-    .map(entry => ({
-      partner: entry.players.find(p => p !== selectedUser),
-      WINS: entry.WINS,
-      DUO_RANK: entry.DUO_RANK,
-    }))
-    .sort((a, b) => b.WINS - a.WINS)
-    .slice(0, 5);
-
-  return filtered;
-}
-
-
 
 export default function UserPage() {
   const [userList, setUserList] = useState([]);
@@ -324,143 +275,143 @@ export default function UserPage() {
   }, [userSummaryData]);
   
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4">
+    <div className="min-h-screen bg-gray-900 text-white p-4 pt-12">
 
       {/* 유저 상세 카드 */}
       {!selectedUser ? (
-        <p className="text-center mt-10 text-gray-400">👆 유저를 선택해주세요.</p>
-      ) : (
-        <div className="bg-center bg-no-repeat bg-contain p-6 rounded-lg max-w-1xl mx-auto relative"
-          style={{
-            width: "824px",
-            height: "768px",
-            backgroundImage: "url('/icons/bg/player_bg.png')",
-            backgroundSize: "contain",
-            padding: "2rem"
-          }}
-        >
-        <div className="absolute top-10 right-10">
-          {seasonList.length > 0 && selectedSeason && (
-            <select
-              className="bg-gray-800 text-white p-2 rounded ml-7"
-              value={selectedSeason?.TITLE || ""}
-              onChange={(e) => {
-                const season = seasonList.find((s) => s.TITLE === e.target.value);
-                setSelectedSeason(season);
-              }}
-            >
-              {seasonList.map((season) => (
-                <option key={season.TITLE} value={season.TITLE}>
-                  {season.TITLE}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* 🎖 시즌 BEST 배너 - 항상 표시 */}
-          <div className="relative w-[200px] h-[300px]">
-            <Image
-              src="/icons/etc/시즌베스트.png" // 또는 "/시즌베스트.png"
-              alt="All Season Best"
-              fill
-              className="object-contain"
-            />
-          </div>
-            {/* 🥇 최고 랭크 출력 텍스트 */}
-            {userBestRank !== null && (
-              <div className="absolute top-4/9 w-full text-center text-white text-7xl drop-shadow-[0_0_4px_rgba(255,0,0,1)]">
-                {userBestRank}위
-              </div>
-            )}
-          </div>
-          <div className="flex p-8 items-start">
-            <div className="flex flex-col items-center space-y-2 w-[200px]">
-              <div className="relative w-[250px] h-[250px] rounded overflow-hidden border border-gray-500">
-                <Image
-                  src={`/icons/users/웹_${selectedUser}.jpg`}
-                  alt={selectedUser}
-                  fill
-                  className="object-contain"
-                  onError={(e) => (e.currentTarget.src = "/icons/users/default.png")}
-                />
-              </div>
-              <h2 className="text-4xl font-bold text-white mb-1">{selectedUser}</h2>
-            </div>
-
-            {isSeasonStatsLoading ? (
-              <div className="ml-12 text-lg text-gray-400 flex items-center">⏳ 시즌 데이터를 불러오는 중입니다...</div>
+              <p className="text-center mt-10 text-gray-400">👆 유저를 선택해주세요.</p>
             ) : (
-              <UserSeasonStats
-                username={selectedUser}
-                seasonStats={seasonStats}
-                isLoading={isSeasonStatsLoading}
-                season={selectedSeason?.TITLE || "ALL"}
-                seasonList={seasonList}
-              />
-            )}
-          </div>
-          {/* 🔴 아래쪽 전체 콘텐츠도 조건부 */}
-          {(isSeasonStatsLoading || !duoStats) && !(recentGamesRendered || awardsRendered) ? (
-            <div className="text-center mt-10 text-lg text-gray-400">⏳ 데이터를 불러오는 중입니다...</div>
-          ) : (
-            <>
-              {/* 시즌 기반 데이터: 듀오 통계 */}
-              {!isSeasonStatsLoading && duoStats && (
-              <div className="flex justify-between items-start gap-4 border-t border-gray-600 -mt-8">
-              {/* 왼쪽: DUO */}
-              <div className="flex-1">
-                <UserDuoStats
-                  duoStats={duoStats}
-                  selectedUser={selectedUser}
-                  seasonTitle={selectedSeason?.TITLE || "ALL"}
-                />
-              </div>
-            
-              {/* 오른쪽: 최다연승 */}
-              <div className="ml-0 -translate-x-35">
-
-                <UserStatsExtra
-                  recentGames={allGames}
-                  summaryData={userSummaryData}
-                  selectedUser={selectedUser}
-                  selectedSeason={selectedSeason}
-                />
-              </div>
-            </div>
-              )}
-              <div className="w-full h-[1px] bg-gray-600 my-3" />
-              {/* 고정 출력: recentGames & awards */}
-              <div className="flex flex-row gap-6 items-start justify-start mt-4 min-h-[200px]">
-                {/* 왼쪽: RecentGames */}
-                <div className="w-[280px]">
-                  {recentGamesRendered ? (
-                    <UserRecentGames recentGames={recentGames} />
-                  ) : (
-                    <div className="text-gray-500 text-sm h-[150px] flex items-center justify-center">
-                      ⏳ 최근 경기 불러오는 중...
+              <div className="bg-center bg-no-repeat bg-contain p-6 rounded-lg max-w-1xl mx-auto -mt-10 relative"
+                style={{
+                  width: "824px",
+                  height: "768px",
+                  backgroundImage: "url('/icons/bg/player_bg.png')",
+                  backgroundSize: "contain",
+                  padding: "2rem"
+                }}
+              >
+              <div className="absolute top-10 right-10">
+                {seasonList.length > 0 && selectedSeason && (
+                  <select
+                    className="bg-gray-800 text-white p-2 rounded ml-7"
+                    value={selectedSeason?.TITLE || ""}
+                    onChange={(e) => {
+                      const season = seasonList.find((s) => s.TITLE === e.target.value);
+                      setSelectedSeason(season);
+                    }}
+                  >
+                    {seasonList.map((season) => (
+                      <option key={season.TITLE} value={season.TITLE}>
+                        {season.TITLE}
+                      </option>
+                    ))}
+                  </select>
+                )}
+      
+                {/* 🎖 시즌 BEST 배너 - 항상 표시 */}
+                <div className="relative w-[200px] h-[300px]">
+                  <Image
+                    src="/icons/etc/시즌베스트.png" // 또는 "/시즌베스트.png"
+                    alt="All Season Best"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                  {/* 🥇 최고 랭크 출력 텍스트 */}
+                  {userBestRank !== null && (
+                    <div className="absolute top-4/9 w-full text-center text-white text-7xl drop-shadow-[0_0_4px_rgba(255,0,0,1)]">
+                      {userBestRank}위
                     </div>
                   )}
                 </div>
-
-                {/* 오른쪽: Awards */}
-                <div className="flex-1 min-w-[250px]">
-                  {awardsRendered ? (
-                    <UserAwards
-                      seasonStats={userSummaryData}
-                      selectedUser={selectedUser}
+                <div className="flex p-8 items-start">
+                  <div className="flex flex-col items-center space-y-2 w-[200px]">
+                    <div className="relative w-[250px] h-[250px] rounded overflow-hidden border border-gray-500">
+                      <Image
+                        src={`/icons/users/웹_${selectedUser}.jpg`}
+                        alt={selectedUser}
+                        fill
+                        className="object-contain"
+                        onError={(e) => (e.currentTarget.src = "/icons/users/default.png")}
+                      />
+                    </div>
+                    <h2 className="text-4xl font-bold text-white mb-1">{selectedUser}</h2>
+                  </div>
+      
+                  {isSeasonStatsLoading ? (
+                    <div className="ml-12 text-lg text-gray-400 flex items-center">⏳ 시즌 데이터를 불러오는 중입니다...</div>
+                  ) : (
+                    <UserSeasonStats
+                      username={selectedUser}
+                      seasonStats={seasonStats}
+                      isLoading={isSeasonStatsLoading}
+                      season={selectedSeason?.TITLE || "ALL"}
                       seasonList={seasonList}
                     />
-                  ) : (
-                    <div className="text-gray-500 text-sm h-[150px] flex items-center justify-center">
-                      ⏳ Awards 불러오는 중...
-                    </div>
                   )}
                 </div>
+                {/* 🔴 아래쪽 전체 콘텐츠도 조건부 */}
+                {(isSeasonStatsLoading || !duoStats) && !(recentGamesRendered || awardsRendered) ? (
+                  <div className="text-center mt-10 text-lg text-gray-400">⏳ 데이터를 불러오는 중입니다...</div>
+                ) : (
+                  <>
+                    {/* 시즌 기반 데이터: 듀오 통계 */}
+                    {!isSeasonStatsLoading && duoStats && (
+                    <div className="flex justify-between items-start gap-4 border-t border-gray-600 -mt-8">
+                    {/* 왼쪽: DUO */}
+                    <div className="flex-1">
+                      <UserDuoStats
+                        duoStats={duoStats}
+                        selectedUser={selectedUser}
+                        seasonTitle={selectedSeason?.TITLE || "ALL"}
+                      />
+                    </div>
+                  
+                    {/* 오른쪽: 최다연승 */}
+                    <div className="ml-0 -translate-x-35">
+      
+                      <UserStatsExtra
+                        recentGames={allGames}
+                        summaryData={userSummaryData}
+                        selectedUser={selectedUser}
+                        selectedSeason={selectedSeason}
+                      />
+                    </div>
+                  </div>
+                    )}
+                    <div className="w-full h-[1px] bg-gray-600 my-3" />
+                    {/* 고정 출력: recentGames & awards */}
+                    <div className="flex flex-row gap-6 items-start justify-start mt-4 min-h-[200px]">
+                      {/* 왼쪽: RecentGames */}
+                      <div className="w-[280px]">
+                        {recentGamesRendered ? (
+                          <UserRecentGames recentGames={recentGames} />
+                        ) : (
+                          <div className="text-gray-500 text-sm h-[150px] flex items-center justify-center">
+                            ⏳ 최근 경기 불러오는 중...
+                          </div>
+                        )}
+                      </div>
+      
+                      {/* 오른쪽: Awards */}
+                      <div className="flex-1 min-w-[250px]">
+                        {awardsRendered ? (
+                          <UserAwards
+                            seasonStats={userSummaryData}
+                            selectedUser={selectedUser}
+                            seasonList={seasonList}
+                          />
+                        ) : (
+                          <div className="text-gray-500 text-sm h-[150px] flex items-center justify-center">
+                            ⏳ Awards 불러오는 중...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-            </>
-          )}
-        </div>
-      )}
+            )}
     </div>
   );
 }
@@ -589,7 +540,7 @@ function UserSeasonStats({ username, seasonStats, isLoading, season, seasonList 
         {/* ALL 줄 출력 */}
         <div className="contents font-bold text-white mt-4">
           <div className="text-lg">ALL</div>
-          <div className="text-right text-2xl text-red-500">{wins}승</div>
+          <div className="text-right text-2xl text-red-500 whitespace-nowrap">{wins}승</div>
           <div className="text-right text-2xl text-red-500">{rank}위</div>
           {!isAllSeason && isSeasonOngoing ? (
             <div className="relative w-[24px] h-[24px]">
@@ -711,79 +662,176 @@ function formatDateTime(isoString) {
   return formatter.format(date).replace(/\. /g, '-').replace(/\./, '').replace(' ', ' ');
 }
 
+function getBadgeLevelByCount(count) {
+  if (count >= 10) return "noble";
+  if (count >= 6) return "noble";
+  if (count >= 3) return "fantastic";
+  return "origin";
+}
+
 function UserAwards({ seasonStats, selectedUser, seasonList }) {
-  if (!seasonStats || seasonStats.length === 0 || !selectedUser || !seasonList || seasonList.length === 0) return null;
+  const [prizeData, setPrizeData] = useState([]);
+  const [showBadgeGuide, setShowBadgeGuide] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/gasApi?action=getPrizeData")
+      .then(res => res.json())
+      .then(data => setPrizeData(data))
+      .catch(err => console.error("🎯 prize 데이터 가져오기 실패:", err));
+  }, []);
+
+  if (!seasonStats?.length || !selectedUser || !seasonList?.length) return null;
 
   const today = new Date();
 
-  // ✅ 종료된 시즌만 필터링 (ALL 제외)
+  // 시즌 종료 필터
   const endedSeasons = seasonList.filter(
     (s) => s.TITLE !== "ALL" && new Date(s.END_TIME) < today
   );
 
-  console.log("📅 종료된 시즌 목록:", endedSeasons.map(s => s.TITLE));
-  console.log("🎯 대상 유저:", selectedUser);
-  console.log("📊 seasonStats:", seasonStats);
-
-  const badgeMap = {
-    1: { icon: "/icons/rank/1.png", seasons: [] },
-    2: { icon: "/icons/rank/2.png", seasons: [] },
-    3: { icon: "/icons/rank/3.png", seasons: [] },
+  // 1~3등 랭킹 뱃지 계산
+  const rankBadgeMap = {
+    1: [],
+    2: [],
+    3: [],
   };
 
-  // ✅ 유저의 시즌 랭크 기록을 순회
   seasonStats.forEach((stat) => {
     const player = (stat.PLAYER || "").trim();
     const season = stat.SEASON;
     const rank = Number(stat.TOTAL_RANK);
-
     const isEndedSeason = endedSeasons.some((s) => s.TITLE === season);
 
     if (player === selectedUser && isEndedSeason && rank >= 1 && rank <= 3) {
-      badgeMap[rank].seasons.push(season);
+      rankBadgeMap[rank].push(season);
     }
   });
 
-  const badgesToShow = Object.entries(badgeMap)
-    .filter(([_, v]) => v.seasons.length > 0)
-    .map(([rank, v]) => ({
-      rank,
-      icon: v.icon,
-      seasons: v.seasons,
+  const rankBadges = Object.entries(rankBadgeMap)
+    .filter(([_, seasons]) => seasons.length)
+    .map(([rank, seasons]) => ({
+      type: rank,
+      count: seasons.length,
+      seasons,
     }));
 
-  console.log("🏅 보여줄 뱃지:", badgesToShow);
+  // 후원/당첨 뱃지 계산
+  const prizeBadgeMap = {
+    sponsor: [],
+    gift: [],
+  };
+
+  prizeData.forEach(prize => {
+    const sponsors = prize.sponsor?.split(",").map(s => s.trim()) || [];
+    const winners = prize.winner?.split(",").map(s => s.trim()) || [];
+
+    if (sponsors.includes(selectedUser)) prizeBadgeMap.sponsor.push(prize.season);
+    if (winners.includes(selectedUser)) prizeBadgeMap.gift.push(prize.season);
+  });
+
+  const prizeBadges = Object.entries(prizeBadgeMap)
+    .filter(([_, seasons]) => seasons.length)
+    .map(([type, seasons]) => ({
+      type,
+      count: seasons.length,
+      seasons,
+    }));
 
   return (
     <div className="ml-30">
-      <h3 className="text-xl text-white font-semibold mb-10 -mt-2">Awards</h3>
-      {badgesToShow.length > 0 ? (
-        <div className="flex flex-wrap gap-4">
-          {badgesToShow.map((badge, idx) => (
-            <div
-              key={idx}
-              className="flex flex-col items-center text-sm text-white"
-            >
-              <div className="w-14 h-14 relative">
-                <Image
-                  src={badge.icon}
-                  alt={`${badge.rank}등`}
-                  fill
-                  className="object-contain"
-                />
+      <div className="flex items-center justify-start mb-5 -mt-2 space-x-2">
+        <h3 className="text-xl text-white font-semibold">Awards</h3>
+        <button
+          onClick={() => setShowBadgeGuide(true)}
+          className="px-2 py-1 bg-gray-800 text-xs rounded hover:bg-gray-600 text-gray-300"
+        >
+          인장 업그레이드 보기
+        </button>
+      </div>
+
+      {rankBadges.length + prizeBadges.length > 0 ? (
+        <div className="flex flex-col items-start gap-2">
+        {/* 🎖 상단: 1~3등 뱃지 */}
+        <div className="flex gap-4 justify-start items-center">
+          {rankBadges.map((badge, idx) => {
+            const level = getBadgeLevelByCount(badge.count);
+            return (
+              <div key={idx} className="flex items-center text-white relative group">
+                <div className="relative w-14 h-14">
+                  <Image
+                    src={`/icons/badge/${badge.type}_${level}.png`}
+                    alt={`${badge.type} badge`}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <span className="ml-2 text-yellow-300 text-lg font-bold">x{badge.count}</span>
+                <div className="absolute hidden group-hover:block bg-blue-700 text-white text-xs p-2 rounded left-1/2 -translate-x-1/2 mt-2 z-50 whitespace-nowrap">
+                  {badge.seasons.map((season, i) => (
+                    <div key={i}>{season}</div>
+                  ))}
+                </div>
               </div>
-              <span className="text-xs mt-1 text-center text-yellow-300 leading-tight">
-                {badge.seasons.join(", ")}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
+      
+        {/* 🎖 하단: 후원 + 당첨 뱃지 */}
+        <div className="flex gap-4 justify-start items-center">
+          {prizeBadges.map((badge, idx) => {
+            const level = getBadgeLevelByCount(badge.count);
+            const badgeName = badge.type === "sponsor" ? "후원" : "당첨";
+      
+            return (
+              <div key={idx} className="flex items-center text-white relative group">
+                <div className="relative w-14 h-14">
+                  <Image
+                    src={`/icons/badge/${badge.type}_${level}.png`}
+                    alt={`${badgeName} badge`}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <span className="ml-2 text-gray-300 text-lg font-bold">x{badge.count}</span>
+                <div className="absolute hidden group-hover:block bg-blue-700 text-white text-xs p-2 rounded left-1/2 -translate-x-1/2 mt-2 z-50 whitespace-nowrap">
+                  {badge.seasons.map((season, i) => (
+                    <div key={i}>{season}</div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
       ) : (
         <p className="text-gray-400 text-sm">획득한 뱃지가 없습니다.</p>
+      )}
+
+      {/* 인장 업그레이드 모달 */}
+      {showBadgeGuide && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+          <div className="relative w-[800px] bg-gray-900 rounded-lg p-6">
+            <button
+              onClick={() => setShowBadgeGuide(false)}
+              className="absolute top-3 right-3 text-white bg-red-500 rounded px-3 py-1 hover:bg-red-600"
+            >
+              닫기
+            </button>
+            <h2 className="text-white text-2xl mb-4 text-center">인장 업그레이드</h2>
+            <Image
+              src="/icons/etc/badge_upgrade.png"
+              alt="Badge Guide"
+              width={768}
+              height={929}
+              className="mx-auto"
+            />
+          </div>
+        </div>
       )}
     </div>
   );
 }
+
 
 function getMaxWinStreakWithSeason(games) {
   const streakBySeason = {};
