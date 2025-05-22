@@ -260,46 +260,50 @@ export default function HomePage() {
                       />
                     </div>
                   </td>
-                  <td className="px-4 py-2 flex md:flex-row items-center space-x-3 border-r border-gray-600 whitespace-nowrap">
-                    <UserProfileImage username={player.username} />
-                    <span
-                      className="text-lg font-medium cursor-pointer hover:underline"
-                      onClick={() => {
-                        const popupUrl = `/user-popup?name=${encodeURIComponent(player.username)}&season=${encodeURIComponent(selectedSeason?.TITLE || "")}`;
-                        window.open(popupUrl, "userPopup", "width=900,height=800,left=100,top=100,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no");
-                      }}
-                    >
-                      {player.username}
-                    </span>
+                  <td className="px-4 py-2 border-r border-gray-600 whitespace-nowrap">
+                    <div className="flex md:flex-row items-center space-x-3">
+                      <UserProfileImage username={player.username} />
+                      <span
+                        className="text-lg font-medium cursor-pointer hover:underline"
+                        onClick={() => {
+                          const popupUrl = `/user-popup?name=${encodeURIComponent(player.username)}&season=${encodeURIComponent(selectedSeason?.TITLE || "")}`;
+                          window.open(popupUrl, "userPopup", "width=900,height=800,left=100,top=100,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no");
+                        }}
+                      >
+                        {player.username}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-3 text-lg font-semibold border-r border-gray-600 whitespace-nowrap">
                     {player.wins}
                   </td>
-                  <td className="px-4 py-2 flex flex-wrap justify-start space-x-2 md:space-x-4 whitespace-nowrap">
-                    {player.druidWins > 0 && (
-                      <div className="flex items-center space-x-2">
-                        <ClassIcon src="/icons/classes/druid.jpg" alt="Druid" />
-                        <span className="text-1xl">{player.druidWins}</span>
-                      </div>
-                    )}
-                    {player.oracleWins > 0 && (
-                      <div className="flex items-center space-x-2">
-                        <ClassIcon src="/icons/classes/oracle.jpg" alt="Oracle" />
-                        <span className="text-1xl">{player.oracleWins}</span>
-                      </div>
-                    )}
-                    {player.necroWins > 0 && (
-                      <div className="flex items-center space-x-2">
-                        <ClassIcon src="/icons/classes/necro.jpg" alt="Necro" />
-                        <span className="text-1xl">{player.necroWins}</span>
-                      </div>
-                    )}
-                    {player.summonerWins > 0 && (
-                      <div className="flex items-center space-x-2">
-                        <ClassIcon src="/icons/classes/summoner.jpg" alt="Summoner" />
-                        <span className="text-1xl">{player.summonerWins}</span>
-                      </div>
-                    )}
+                  <td className="px-4 py-2 border-gray-600 whitespace-nowrap border-l">
+                    <div className="flex flex-wrap justify-start space-x-2 md:space-x-4">
+                      {player.druidWins > 0 && (
+                        <div className="flex items-center space-x-2">
+                          <ClassIcon src="/icons/classes/druid.jpg" alt="Druid" />
+                          <span className="text-1xl">{player.druidWins}</span>
+                        </div>
+                      )}
+                      {player.oracleWins > 0 && (
+                        <div className="flex items-center space-x-2">
+                          <ClassIcon src="/icons/classes/oracle.jpg" alt="Oracle" />
+                          <span className="text-1xl">{player.oracleWins}</span>
+                        </div>
+                      )}
+                      {player.necroWins > 0 && (
+                        <div className="flex items-center space-x-2">
+                          <ClassIcon src="/icons/classes/necro.jpg" alt="Necro" />
+                          <span className="text-1xl">{player.necroWins}</span>
+                        </div>
+                      )}
+                      {player.summonerWins > 0 && (
+                        <div className="flex items-center space-x-2">
+                          <ClassIcon src="/icons/classes/summoner.jpg" alt="Summoner" />
+                          <span className="text-1xl">{player.summonerWins}</span>
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -331,7 +335,7 @@ function UserProfileImage({ username }) {
 // ✅ 클래스 아이콘 컴포넌트 (onError 필요 없음)
 function ClassIcon({ src, alt }) {
   return (
-    <div className="relative w-10 h-10">
+    <div className="relative w-9 h-9">
       <Image src={src} alt={alt} fill className="object-contain" />
     </div>
   );
