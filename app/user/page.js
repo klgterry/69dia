@@ -975,44 +975,34 @@ function getMaxWinStreakWithSeason(games) {
 
 
 function getMaxWinStreak(games, selectedSeasonTitle) {
-  // 1. 시즌 필터링 + 정렬
-  const filtered = (selectedSeasonTitle === "ALL"
-    ? games
-    : games.filter(game => game.SEASON === selectedSeasonTitle)
-  ).sort((a, b) => new Date(a.DATETIME) - new Date(b.DATETIME));
+  // ✅ "ALL"은 실제 데이터에 존재하지 않으므로 전체 사용
+  const filtered = selectedSeasonTitle === "ALL"
+    ? [...games] // 모든 게임 사용
+    : games.filter(game => game.SEASON === selectedSeasonTitle);
 
-  console.log("📋 [getMaxWinStreak] 선택된 시즌:", selectedSeasonTitle);
-  console.log("🎮 필터링된 경기 목록:");
-  filtered.forEach((g, idx) => {
-    console.log(
-      `  ${idx + 1}. ${g.DATETIME} | ${g.RESULT} | ${g.CLASS_USED} | ${g.SEASON}`
-    );
-  });
+  const sortedGames = filtered.sort(
+    (a, b) => new Date(a.DATETIME) - new Date(b.DATETIME)
+  );
 
-  // 2. 연승 계산
   let maxStreak = 0;
   let current = 0;
 
-  for (const game of filtered) {
+  for (const game of sortedGames) {
     if (game.RESULT === "WIN") {
       current++;
       maxStreak = Math.max(maxStreak, current);
     } else {
-      console.log(`⚠️ 연승 끊김! (${current}연승 후) → ${game.DATETIME}`);
       current = 0;
     }
   }
 
-  console.log("🏆 최종 최대 연승:", maxStreak);
   return maxStreak;
 }
 
-
 function UserStatsExtra({ recentGames, summaryData, selectedUser, selectedSeason }) {
   const isAllSeason = selectedSeason?.TITLE === "ALL";
-  const winStreak = isAllSeason
-    ? getMaxWinStreakWithSeason(recentGames)
-    : getMaxWinStreak(recentGames, selectedSeason?.TITLE);
+  const winStreak = getMaxWinStreak(recentGames, selectedSeason?.TITLE);
+
 
   const topSeasons = getTopSeasonsByWins(summaryData, selectedUser);
 
@@ -1020,16 +1010,10 @@ function UserStatsExtra({ recentGames, summaryData, selectedUser, selectedSeason
     <div className="text-xl text-white ml-6 mt-4 leading-tight">
       {/* 최다연승 */}
       <p className="mb-1 whitespace-nowrap font-semibold">
-        {isAllSeason ? (
-          <>
-            최다연승 : <span className="text-yellow-300 font-semibold">{winStreak.winStreak}승</span>
-            <span className="ml-1 text-gray-400 text-xs">({winStreak.season})</span>
-          </>
-        ) : (
-          <>
-            최다연승 : <span className="text-yellow-300 font-semibold">{winStreak}연승</span>
-          </>
-        )}
+        최다연승 :{" "}
+        <span className="text-yellow-300 font-semibold">
+          {winStreak > 0 ? `${winStreak}승` : "없음"}
+        </span>
       </p>
 
       {/* ✅ 구분선 추가 */}
