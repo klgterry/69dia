@@ -39,6 +39,12 @@ async function fetchRegisterPassword() {
   return data.password;
 }
 
+async function fetchUserSummary() {
+  const response = await fetch("/api/gasApi?action=getUserSummary");
+  if (!response.ok) throw new Error("요약 데이터를 가져오지 못했습니다.");
+  return await response.json(); // [{ SEASON, PLAYER, TOTAL_WINS, TOTAL_RANK, D_WINS, D_RANK, ... }]
+}
+
 function parsePlayersInput(inputString) {
   const parsed = {};
 
@@ -271,6 +277,51 @@ export default function TeamPage() {
       parsedPlayers[p] = selectedClasses[p] || [];
     }
 
+    // 📦 2️⃣ 여기서 유저 요약 정보 fetch
+    const userSummary = await fetchUserSummary();
+    console.log("📄 전체 유저 요약:", userSummary);
+
+    if (userSummary.length === 0) {
+      console.warn("⚠️ 유저 요약 데이터가 없습니다.");
+      return;
+    }
+
+    // ✅ 최신 시즌 자동 추출
+    const latestSeason = userSummary[userSummary.length - 1].SEASON;
+    console.log("🆕 최신 시즌:", latestSeason);
+
+    // ✅ 최신 시즌 필터링
+    const filteredSummary = userSummary.filter(
+      (user) => user.SEASON === latestSeason
+    );
+    console.log("🔍 최신 시즌 유저 요약:", filteredSummary);
+
+    // ✅ recentClassMap 생성 (PLAYER 기준!)
+    const recentClassMap = {};
+    filteredSummary.forEach((user) => {
+      const username = (user.PLAYER || "").trim(); // ✅ 정확히 player 명으로
+      const recentClass = (user.RECENT_GAME_1_CLASS || "").trim();
+
+      if (username && recentClass) {
+        recentClassMap[username] = recentClass;
+      }
+    });
+    console.log("🧭 유저별 최근 클래스 맵:", recentClassMap);
+
+    // ✅ parsedPlayers 확장
+    Object.keys(parsedPlayers).forEach((usernameRaw) => {
+      const username = usernameRaw.trim();
+      const preferred = parsedPlayers[usernameRaw];
+      const recent = recentClassMap[username] || null;
+
+      parsedPlayers[usernameRaw] = {
+        preferred,
+        recent,
+      };
+
+      console.log(`👤 ${username} → preferred: ${JSON.stringify(preferred)}, recent: ${recent}`);
+    });
+
     const playerData = await fetchPlayerInfo(playerList);
     if (!checkClassDistribution(playerData)) return;
     const enrichedPlayerData = calculateEffectiveMMR(playerData, parsedPlayers);
@@ -426,6 +477,7 @@ export default function TeamPage() {
     const assigned = [];
     const used = new Set();
 
+    // 🎲 클래스 랜덤 섞기 (3회 반복)
     for (let i = positions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [positions[i], positions[j]] = [positions[j], positions[i]];
@@ -447,72 +499,109 @@ export default function TeamPage() {
 
     console.log("🔄 [클래스 랜덤] 3회차:", positions); // 예: ["넥", "드", "슴", "어"]
 
-    console.log("🔄 [클래스 배정 시작] 팀:", team.map(p => p.username));
-    console.log("📌 [사용자 지정 클래스]:", parsedPlayers);
+    console.log("👥 [배정 대상 팀]:", team.map(p => p.username));
+    console.log("📌 [parsedPlayers]:", parsedPlayers);
 
-    // 1. 사용자 지정 클래스 중에서 단일 지정 우선 배정
+    // 🔒 1. 단일 지정 클래스 우선 배정
     for (const pos of positions) {
       for (const player of team) {
         const username = player.username;
         if (used.has(username)) continue;
 
-        const preferred = parsedPlayers[username];
-
-        // 🎯 지정 클래스가 딱 하나일 때만 우선 배정
+        const preferred = parsedPlayers[username]?.preferred;
         if (preferred && preferred.length === 1 && preferred[0] === pos) {
           assigned.push({ ...player, class: pos });
           used.add(username);
-          console.log(`🔒 [단일 지정 클래스 고정] ${username} → ${pos}`);
+          console.log(`🔒 [단일지정] ${username} → ${pos}`);
           break;
         }
       }
     }
 
-    // 1. 사용자 지정 클래스 우선 배정
+    // ✅ 2. 다중 지정 클래스 우선 배정
     for (const pos of positions) {
       for (const player of team) {
         const username = player.username;
         if (used.has(username)) continue;
 
-        const preferred = parsedPlayers[username];
+        const preferred = parsedPlayers[username]?.preferred;
         if (preferred && preferred.includes(pos)) {
           assigned.push({ ...player, class: pos });
           used.add(username);
-          console.log(`✅ [지정 클래스 배정] ${username} → ${pos}`);
+          console.log(`✅ [지정우선] ${username} → ${pos}`);
           break;
         }
       }
     }
 
-    // 2. 나머지는 가능한 포지션으로 자동 배정
+    // 🌀 3. 자동 배정 (recent 클래스 회피 시도)
     for (const pos of positions) {
-      if (assigned.some(p => p.class === pos)) continue;
+      if (assigned.some(p => p.class === pos)) {
+        console.log(`🚫 [건너뜀] ${pos} 클래스는 이미 배정 완료`);
+        continue;
+      }
 
       const candidates = team.filter(p => {
         const username = p.username;
         if (used.has(username)) return false;
-        const available = p.class.split(", ").map(c => c.trim());
+        const available = p.class.split(",").map(c => c.trim());
         return available.includes(pos);
       });
 
-      if (candidates.length > 0) {
-        const randomPick = candidates[Math.floor(Math.random() * candidates.length)];
-        assigned.push({ ...randomPick, class: pos });
-        used.add(randomPick.username);
-        console.log(`🌀 [자동 클래스 배정] ${randomPick.username} → ${pos}`);
+      console.log(`🔍 [${pos}] 배정 후보:`, candidates.map(c => c.username));
+
+      const [avoidRecent, allowRecent] = [[], []];
+
+      for (const player of candidates) {
+        const username = player.username;
+        const recent = parsedPlayers[username]?.recent;
+
+        if (recent && recent === pos) {
+          console.log(`⚠️ [${username}] 최근 클래스(${recent})와 같음 → 후순위`);
+          allowRecent.push(player);
+        } else {
+          avoidRecent.push(player);
+        }
+      }
+
+      const pickFrom = avoidRecent.length > 0 ? avoidRecent : allowRecent;
+
+      if (pickFrom.length > 0) {
+        const selected = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+        assigned.push({ ...selected, class: pos });
+        used.add(selected.username);
+        console.log(`🌀 [자동배정] ${selected.username} → ${pos} (${avoidRecent.length === 0 ? "❗ 최근 클래스 허용" : "✅ 회피 성공"})`);
       } else {
-        console.warn(`⚠️ [포지션 미배정] ${pos}에 배정 가능한 유저 없음`);
-        return null; // ⚠️ 배정 실패
+        console.warn(`❌ [실패] ${pos}에 배정 가능한 유저 없음`);
+        return null;
       }
     }
 
-    // 3. 드 → 어 → 넥 → 슴 순 정렬
+    // 📐 4. 정렬: 드 → 어 → 넥 → 슴
     const positionOrder = { "드": 0, "어": 1, "넥": 2, "슴": 3 };
     assigned.sort((a, b) => positionOrder[a.class] - positionOrder[b.class]);
+    
+    // 🎯 4. 최종 배정 결과 요약 출력
+    console.log("📊 [최종 클래스 배정 요약]");
+    console.log("╔════════════╦════════╦════════════╦═════╗");
+    console.log("║   유저명    ║ 클래스 ║ 최근 클래스 ║ 체크 ║");
+    console.log("╠════════════╬════════╬════════════╬═════╣");
 
-    console.log("✅ [최종 클래스 배정 결과]", assigned);
+    assigned.forEach((p) => {
+      const username = p.username.padEnd(10); // 10자 기준 좌측 정렬
+      const assignedClass = p.class.padEnd(4);
+      const recentClass = (parsedPlayers[p.username]?.recent || "-").padEnd(6);
+      const isSame = assignedClass.trim() === recentClass.trim();
+      const check = isSame ? "❗" : "✔️";
+
+      console.log(`║ ${username} ║  ${assignedClass} ║     ${recentClass} ║  ${check}  ║`);
+    });
+
+    console.log("╚════════════╩════════╩════════════╩═════╝");
+
     return assigned;
   }
+
 
   const [lastPlayerList, setLastPlayerList] = useState([]);
 
