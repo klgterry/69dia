@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -288,11 +288,21 @@ function RouletteModal({ season, participants, onClose }) {
     setMaxRank(value === "" ? 15 : Number(value)); // 빈값일 때 기본값 15
   };
 
+  const winAudioRef = useRef(null);
+  
+    const stopWinSound = () => {
+      if (winAudioRef.current) {
+        winAudioRef.current.pause();
+        winAudioRef.current.currentTime = 0;
+      }
+    };
+
   useEffect(() => {
     if (!winner) return; // 당첨자 없으면 이벤트 등록 X
 
     const handleClick = () => {
       setWinner(null); // 클릭하면 당첨자 화면 제거
+      stopWinSound();
     };
 
     document.addEventListener("mousedown", handleClick);
@@ -523,6 +533,7 @@ function RouletteModal({ season, participants, onClose }) {
               setWinner(name); // ✅ 이것만 있어도 됩니다
               handleSpinComplete(name);
             }}
+            winAudioRef={winAudioRef}
           />
         </div>
         

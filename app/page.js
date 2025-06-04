@@ -111,7 +111,7 @@ export default function HomePage() {
   }, [selectedSeason]);
   
   // 👇 이건 .map() 위쪽에 추가해줘 (JSX 밖에서)
-  const filteredPlayers = leaderboard.filter((player) => player.rank <= 25);
+  const filteredPlayers = leaderboard.filter((player) => player.rank <= 30);
   const fiveWinsOrMore = filteredPlayers.filter((player) => player.wins >= 5);
   const oneWinOrMore = filteredPlayers.filter((player) => player.wins >= 1);
 

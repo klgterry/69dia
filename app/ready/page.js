@@ -236,6 +236,27 @@ export default function TeamPage() {
     const bNames = teamB.map(p => p.username || p).join("/");
     const result = `!결과등록 [아래${teamAScore}]${aNames} vs [위${teamBScore}]${bNames}`;
 
+    // ✅ 복사 기준으로 현재 클래스 저장
+    const newFinalClasses = {};
+    [...teamA, ...teamB].forEach(p => {
+      const username = p.username || p;
+      const cls = p.class;
+      if (username && cls) {
+        newFinalClasses[username] = cls;
+      }
+    });
+    setFinalClasses(newFinalClasses);
+
+    // 🎯 디버깅용 로그
+    console.log("📌 [handleCopyMatchResult] 클래스 및 결과 복사 완료");
+    console.log("╔════════════╦════════════════╗");
+    console.log("║   유저명    ║ 클래스(Rematch) ║");
+    console.log("╠════════════╬════════════════╣");
+    Object.entries(newFinalClasses).forEach(([name, cls]) => {
+      console.log(`║ ${name.padEnd(10)} ║ ${cls.padEnd(12)} ║`);
+    });
+    console.log("╚════════════╩════════════════╝");
+
     // 💡 팀 색상 갱신
     setPreviousTeamMap(
       Object.fromEntries([
@@ -251,10 +272,10 @@ export default function TeamPage() {
     console.log("📋 복사된 내용:", result);
   };
 
-
   // generateTeams 리팩터링: default / rematch 분기
   const [teamMode, setTeamMode] = useState("default");
   const [previousTeamMap, setPreviousTeamMap] = useState({});
+  const [finalClasses, setFinalClasses] = useState({});
 
   const generateTeams = async () => {
     playSound("mix.mp3");
@@ -312,7 +333,9 @@ export default function TeamPage() {
     Object.keys(parsedPlayers).forEach((usernameRaw) => {
       const username = usernameRaw.trim();
       const preferred = parsedPlayers[usernameRaw];
-      const recent = recentClassMap[username] || null;
+      const recent = teamMode === "rematch"
+      ? finalClasses[username] || null  // 리매치일 때는 복사된 현재 클래스
+      : recentClassMap[username] || null;  // 기본은 UserSummary에서
 
       parsedPlayers[usernameRaw] = {
         preferred,
@@ -330,6 +353,7 @@ export default function TeamPage() {
     console.log("📊 정렬된 플레이어 MMR:", sorted.map(p => ({ username: p.username, mmr: p.effectiveMMR })));
 
     if (teamMode === "default") {
+       setFinalClasses({});
       runInitialTeamGeneration(sorted, parsedPlayers);
     } else if (teamMode === "rematch") {
       runRematchWithSwap(sorted, parsedPlayers);

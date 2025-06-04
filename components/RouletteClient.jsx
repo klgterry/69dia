@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Wheel } from "react-custom-roulette";
 
-export default function RouletteClient({ items, onComplete, shouldSpin }) {
+export default function RouletteClient({ items, onComplete, shouldSpin, winAudioRef }) {
   const [prizeIndex, setPrizeIndex] = useState(null);
   const [mustStartSpinning, setMustStartSpinning] = useState(false);
   const [winner, setWinner] = useState(null);
-  const [ready, setReady] = useState(false); // ✅ 렌더링 조건 제어
+  const [ready, setReady] = useState(false);
 
-  // ✅ items가 바뀌면 초기화 + index 설정
+  const spinAudioRef = useRef(null);
+
+  // ✅ 아이템이 유효할 때 초기화
   useEffect(() => {
     if (
       Array.isArray(items) &&
@@ -17,31 +19,32 @@ export default function RouletteClient({ items, onComplete, shouldSpin }) {
       items.every((item) => item && typeof item.option === "string")
     ) {
       const index = Math.floor(Math.random() * items.length);
-      console.log("🎲 안전 index:", index);
-      console.log("🧪 items[randomIndex]:", items[index]);
-
       setPrizeIndex(index);
       setWinner(null);
-      setMustStartSpinning(false); // spin은 index 설정 후 별도 실행
-      setReady(true); // ✅ 이 타이밍에만 Wheel 렌더링 허용
+      setMustStartSpinning(false);
+      setReady(true);
     } else {
-      setReady(false); // 유효하지 않으면 렌더링 막기
+      setReady(false);
     }
   }, [items]);
 
-  // ✅ index가 설정된 후에만 돌리기
+  // ✅ 외부에서 shouldSpin이 true일 때만 회전 시작
   useEffect(() => {
     if (
+      shouldSpin &&
       ready &&
       typeof prizeIndex === "number" &&
       prizeIndex >= 0 &&
       prizeIndex < items.length
     ) {
+      // 🎵 효과음 재생
+      spinAudioRef.current?.play().catch((e) =>
+        console.warn("🔇 회전 소리 재생 실패:", e)
+      );
       setMustStartSpinning(true);
     }
-  }, [ready, prizeIndex]);
+  }, [shouldSpin]);
 
-  // ✅ 에러 방지 조건
   const isValid =
     ready &&
     Array.isArray(items) &&
@@ -50,42 +53,56 @@ export default function RouletteClient({ items, onComplete, shouldSpin }) {
     prizeIndex < items.length &&
     typeof items[prizeIndex]?.option === "string";
 
-    if (!items || items.length === 0 || !isValid) {
+  if (!items || items.length === 0 || !isValid) {
     return (
-        <div className="w-full h-[500px] flex items-center justify-center text-gray-400 text-sm">
+      <div className="w-full h-[500px] flex items-center justify-center text-gray-400 text-sm">
         ⚠️ 룰렛을 준비 중입니다...
-        </div>
+      </div>
     );
-    }
+  }
 
   return (
     <div className="relative w-full h-[500px] flex items-center justify-center">
+      {/* 🎵 사운드 */}
+      <audio ref={spinAudioRef} src="/sfx/spin_r.mp3" preload="auto" loop />
+      <audio ref={winAudioRef} src="/sfx/win.mp3" preload="auto" />
 
-  {/* 🎯 실제 룰렛은 위에 덮음 */}
-  <div className="relative z-20">
-    <Wheel
-      mustStartSpinning={shouldSpin} // ✅ 외부 트리거로 조정
-      prizeNumber={prizeIndex}
-      data={items}
-      backgroundColors={["#1e90ff", "#ff6347", "#32cd32", "#ffa500"]}
-      textColors={["#fff"]}
-      fontSize={26}
-      textDistance={75}
-      outerBorderColor="#fff"
-      outerBorderWidth={6}
-      radiusLineColor="#ddd"
-      radiusLineWidth={1}
-      spinDuration={1}
-      onStopSpinning={() => {
-        const selected = items[prizeIndex]?.option;
-        console.log("🎉 룰렛 종료! 당첨자:", selected);
-        setWinner(selected);
-        setMustStartSpinning(false);
-        if (onComplete) onComplete(selected);
-    }}
-    />
-  </div>
-</div>
+      {/* 🎯 룰렛 */}
+      <div className="relative z-20">
+        <Wheel
+          mustStartSpinning={mustStartSpinning}
+          prizeNumber={prizeIndex}
+          data={items}
+          backgroundColors={["#1e90ff", "#ff6347", "#32cd32", "#ffa500"]}
+          textColors={["#fff"]}
+          fontSize={26}
+          textDistance={75}
+          outerBorderColor="#fff"
+          outerBorderWidth={6}
+          radiusLineColor="#ddd"
+          radiusLineWidth={1}
+          spinDuration={0.8}
+          onStopSpinning={() => {
+            const selected = items[prizeIndex]?.option;
+            console.log("🎉 룰렛 종료! 당첨자:", selected);
+            setWinner(selected);
+            setMustStartSpinning(false);
 
+            // 🔇 회전 사운드 정지
+            if (spinAudioRef.current) {
+              spinAudioRef.current.pause();
+              spinAudioRef.current.currentTime = 0;
+            }
+
+            // 🥁 당첨 사운드
+            winAudioRef.current?.play().catch((e) =>
+              console.warn("🔇 당첨 소리 재생 실패:", e)
+            );
+
+            if (onComplete) onComplete(selected);
+          }}
+        />
+      </div>
+    </div>
   );
 }
