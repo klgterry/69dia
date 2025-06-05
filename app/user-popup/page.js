@@ -737,6 +737,13 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
       seasons,
     }));
 
+  const hundredWinSeasons = seasonStats.filter(
+    (stat) =>
+      stat.PLAYER === selectedUser &&
+      stat.SEASON !== "ALL" &&
+      Number(stat.TOTAL_WINS) >= 100
+  ).map(stat => stat.SEASON);
+
   return (
     <div className="ml-30">
       <div className="flex items-center justify-start mb-5 -mt-2 space-x-2">
@@ -749,14 +756,13 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
         </button>
       </div>
 
-      {rankBadges.length + prizeBadges.length > 0 ? (
-        <div className="flex flex-col items-start gap-2">
-        {/* 🎖 상단: 1~3등 뱃지 */}
-        <div className="flex gap-4 justify-start items-center">
+      {rankBadges.length + prizeBadges.length + hundredWinSeasons.length > 0 ? (
+        <div className="flex flex-wrap gap-4 justify-start items-center max-w-[320px]">
+          {/* 🥇 1~3등 뱃지 */}
           {rankBadges.map((badge, idx) => {
             const level = getBadgeLevelByCount(badge.count);
             return (
-              <div key={idx} className="flex items-center text-white relative group">
+              <div key={`rank-${idx}`} className="flex items-center text-white relative group">
                 <div className="relative w-14 h-14">
                   <Image
                     src={`/icons/badge/${badge.type}_${level}.png`}
@@ -774,16 +780,34 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
               </div>
             );
           })}
-        </div>
-      
-        {/* 🎖 하단: 후원 + 당첨 뱃지 */}
-        <div className="flex gap-4 justify-start items-center">
+
+          {/* 🏆 100승 뱃지 */}
+          {hundredWinSeasons.length > 0 && (
+            <div className="flex items-center text-white relative group">
+              <div className="relative w-14 h-14">
+                <Image
+                  src="/icons/badge/100win.png"
+                  alt="100승 뱃지"
+                  fill
+                  className="object-contain"
+                />
+              </div>
+              <span className="ml-2 text-yellow-300 text-lg font-bold">x{hundredWinSeasons.length}</span>
+              <div className="absolute hidden group-hover:block bg-blue-700 text-white text-xs p-2 rounded left-1/2 -translate-x-1/2 mt-2 z-50 whitespace-nowrap">
+                {hundredWinSeasons.map((season, i) => (
+                  <div key={i}>{season}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 🎁 후원/당첨 뱃지 */}
           {prizeBadges.map((badge, idx) => {
             const level = getBadgeLevelByCount(badge.count);
             const badgeName = badge.type === "sponsor" ? "후원" : "당첨";
-      
+
             return (
-              <div key={idx} className="flex items-center text-white relative group">
+              <div key={`prize-${idx}`} className="flex items-center text-white relative group">
                 <div className="relative w-14 h-14">
                   <Image
                     src={`/icons/badge/${badge.type}_${level}.png`}
@@ -802,7 +826,6 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
             );
           })}
         </div>
-      </div>
       ) : (
         <p className="text-gray-400 text-sm">획득한 뱃지가 없습니다.</p>
       )}

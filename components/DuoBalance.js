@@ -268,7 +268,7 @@ export default function DuoBalance() {
             </div>
 
             {/* 타이틀 */}
-            <h3 className="text-2xl font-bold text-white mb-4 -mt-5">
+            <h3 className="text-2xl font-bold text-white -mb-3 -mt-10">
               🔥 DUO POWER RANKING (Top 100) - <span className="text-yellow-400">{rankingSeason}</span>
             </h3>
 
