@@ -112,10 +112,11 @@ export default function HomePage() {
   
   // 👇 이건 .map() 위쪽에 추가해줘 (JSX 밖에서)
   const filteredPlayers = leaderboard.filter((player) => player.rank <= 30);
-  const fiveWinsOrMore = filteredPlayers.filter((player) => player.wins >= 5);
+  //const fiveWinsOrMore = filteredPlayers.filter((player) => player.wins >= 5);
   const oneWinOrMore = filteredPlayers.filter((player) => player.wins >= 1);
 
-  const playersToDisplay = fiveWinsOrMore.length >= 20 ? fiveWinsOrMore : oneWinOrMore;
+  //const playersToDisplay = fiveWinsOrMore.length >= 20 ? fiveWinsOrMore : oneWinOrMore;
+  const playersToDisplay = oneWinOrMore;
   
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">

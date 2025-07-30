@@ -597,7 +597,7 @@ function UserSeasonStats({ username, seasonStats, isLoading, season, seasonList 
       </div>
 
       {/* 클래스별 데이터 */}
-      <div className="grid grid-cols-[40px_60px_60px_30px] gap-x-4 gap-y-2 text-2xl items-center">
+      <div className="grid grid-cols-[40px_60px_60px_30px] gap-x-4 gap-y-2 text-1xl items-center">
         {classStats.map(
           (cls) =>
             cls.wins > 0 && (
