@@ -74,41 +74,54 @@ export default function HomePage() {
   const isCurrentSeason = selectedSeason?.TITLE === seasonList.at(-1)?.TITLE;
   
   useEffect(() => {
-    if (!selectedSeason) return;
-  
-    setIsLoading(true);
-  
-    Promise.all([fetchUserSummary(), fetchSeasonPrevRank()])
-      .then(([summary, prevRankList]) => {
-        const seasonUsers = summary.filter(user => user.SEASON === selectedSeason.TITLE);
-  
-        // 병합: prevRank
-        const merged = seasonUsers.map(user => {
-          const prev = prevRankList.find(p => p.SEASON === user.SEASON && p.PLAYER === user.PLAYER);
-          return {
-            username: user.PLAYER,
-            wins: Number(user.TOTAL_WINS),
-            druidWins: Number(user.D_WINS || 0),
-            oracleWins: Number(user.A_WINS || 0),
-            necroWins: Number(user.N_WINS || 0),
-            summonerWins: Number(user.S_WINS || 0),
-            rank: Number(user.TOTAL_RANK),
-            prevRank: prev ? Number(prev.PrevRank) : Number(user.TOTAL_RANK),
-          };
-        });
-  
-        // 정렬: 승수 기준
-        merged.sort((a, b) => {
-          if (b.wins === a.wins) {
-            return a.username.localeCompare(b.username, "ko");
-          }
-          return b.wins - a.wins;
-        });
-  
-        setLeaderboard(merged);
-        setIsLoading(false);
+  if (!selectedSeason || seasonList.length === 0) return;
+
+  setIsLoading(true);
+
+  const isLatestSeason = selectedSeason.TITLE === seasonList.at(-1)?.TITLE;
+
+  const summaryPromise = isLatestSeason
+    ? fetch("/api/gasApi?action=getCurrentSeasonSummary").then(res => res.json())
+    : fetchUserSummary();
+
+  Promise.all([summaryPromise, fetchSeasonPrevRank()])
+    .then(([summary, prevRankList]) => {
+      const seasonUsers = isLatestSeason
+        ? summary // 이미 필터링된 최신 시즌 데이터
+        : summary.filter(user => user.SEASON === selectedSeason.TITLE);
+
+      // 병합: prevRank
+      const merged = seasonUsers.map(user => {
+        const prev = prevRankList.find(p => p.SEASON === user.SEASON && p.PLAYER === user.PLAYER);
+        return {
+          username: user.PLAYER,
+          wins: Number(user.TOTAL_WINS),
+          druidWins: Number(user.D_WINS || 0),
+          oracleWins: Number(user.A_WINS || 0),
+          necroWins: Number(user.N_WINS || 0),
+          summonerWins: Number(user.S_WINS || 0),
+          rank: Number(user.TOTAL_RANK),
+          prevRank: prev ? Number(prev.PrevRank) : Number(user.TOTAL_RANK),
+        };
       });
-  }, [selectedSeason]);
+
+      // 정렬: 승수 기준
+      merged.sort((a, b) => {
+        if (b.wins === a.wins) {
+          return a.username.localeCompare(b.username, "ko");
+        }
+        return b.wins - a.wins;
+      });
+
+      setLeaderboard(merged);
+      setIsLoading(false);
+    })
+    .catch((err) => {
+      console.error("🚨 데이터 로딩 실패:", err);
+      setIsLoading(false);
+    });
+}, [selectedSeason, seasonList]);
+
   
   // 👇 이건 .map() 위쪽에 추가해줘 (JSX 밖에서)
   const filteredPlayers = leaderboard.filter((player) => player.rank <= 30);
