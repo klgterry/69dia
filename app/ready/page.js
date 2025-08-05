@@ -16,6 +16,14 @@ async function fetchLeaderboard() {
   return data.players || [];
 }
 
+async function fetchFavoritePlayers() {
+  const response = await fetch("/api/gasApi?action=getFavoriteCandidates");
+  if (!response.ok) {
+    throw new Error("즐겨찾기 유저 데이터를 불러오지 못했습니다.");
+  }
+  const data = await response.json();
+  return Array.isArray(data) ? data : []; // ✅ 배열로 바로 리턴
+}
 
 // 👇 이걸 TeamPage 컴포넌트 위에 선언
 async function fetchPlayerInfo(players) {
@@ -218,17 +226,28 @@ export default function TeamPage() {
   const [isRegisterLoading, setRegisterLoading] = useState(false);
   const [gameNumber, setGameNumber] = useState("");
   const [winTarget, setWinTarget] = useState(4); // 기본은 3선승
+  const [favorites, setFavorites] = useState([]);
     
+  // useEffect(() => {
+  //   setIsTop10Loading(true);
+  //   fetchLeaderboard().then(players => {
+  //     const top10 = players
+  //       .filter(p => p.wins >= 1)
+  //       .sort((a, b) => a.rank - b.rank)
+  //       .slice(0, 24);
+  //     setLeaderboardTop10(top10);
+  //     setIsTop10Loading(false);
+  //   }).catch(err => console.error("랭킹 데이터 불러오기 실패:", err));
+  // }, []);
+
   useEffect(() => {
     setIsTop10Loading(true);
-    fetchLeaderboard().then(players => {
-      const top10 = players
-        .filter(p => p.wins >= 1)
-        .sort((a, b) => a.rank - b.rank)
-        .slice(0, 24);
-      setLeaderboardTop10(top10);
-      setIsTop10Loading(false);
-    }).catch(err => console.error("랭킹 데이터 불러오기 실패:", err));
+    fetchFavoritePlayers()
+      .then((players) => {
+        setLeaderboardTop10(players); // 이제 names는 ["플레이어1", "플레이어2", ...]
+        setIsTop10Loading(false);
+      })
+      .catch(err => console.error("랭킹 데이터 불러오기 실패:", err));
   }, []);
 
   const handleCopyMatchResult = () => {
@@ -973,21 +992,21 @@ export default function TeamPage() {
 
           <div className="absolute top-1/2 left-[54%] transform -translate-x-1/2 -translate-y-1/2 flex flex-wrap justify-left gap-1 w-[90%]">
             {isTop10Loading ? (
-              <span className="text-white text-sm">🚀 즐겨찾기기 데이터를 불러오는 중입니다...</span>
+              <span className="text-white text-sm">🚀 즐겨찾기 데이터를 불러오는 중입니다...</span>
             ) : (
               leaderboardTop10.map((player) => (
                 <button
-                  key={player.username}
+                  key={player}
                   onClick={() => {
                     const nameList = players.split(",").map(p => p.trim()).filter(p => p.length > 0);
-                    if (!nameList.includes(player.username)) {
-                      const newList = [...nameList, player.username];
+                    if (!nameList.includes(player)) {
+                      const newList = [...nameList, player];
                       setPlayers(newList.join(",") + ",");
                     }
                   }}
                   className="px-3 py-1 text-white bg-transparent border border-white rounded-full shadow-md hover:bg-white hover:text-gray-900 transition-all duration-200 text-sm"
                 >
-                  {player.username}
+                  {player}
                 </button>
               ))
             )}
