@@ -357,7 +357,11 @@ export default function UserPage() {
 
       {/* 유저 상세 카드 */}
       {!selectedUser ? (
-        <WeeklyRanking />
+        //<WeeklyRanking />
+        <p className="text-center mt-10 text-sm text-gray-400">
+        ※ 사이트 최적화 중입니다.
+      </p>
+
       ) : (
         <div className="bg-center bg-no-repeat bg-contain p-6 rounded-lg max-w-1xl mx-auto -mt-10 relative"
           style={{
@@ -839,7 +843,7 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
   .map(stat => stat.SEASON);
 
   return (
-    <div className="ml-30">
+    <div className="ml-20">
       <div className="flex items-center justify-start mb-5 -mt-2 space-x-2">
         <h3 className="text-xl text-white font-semibold">Awards</h3>
         <button
@@ -851,13 +855,13 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
       </div>
 
       {rankBadges.length + prizeBadges.length + hundredWinSeasons.length + fiftyWinSeasons.length > 0 ? (
-        <div className="flex flex-wrap gap-4 justify-start items-center max-w-[320px]">
+        <div className="flex flex-wrap gap-4 justify-start items-center max-w-[420px]">
           {/* 🥇 1~3등 뱃지 */}
           {rankBadges.map((badge, idx) => {
             const level = getBadgeLevelByCount(badge.count);
             return (
               <div key={`rank-${idx}`} className="flex items-center text-white relative group">
-                <div className="relative w-14 h-14">
+                <div className="relative w-12 h-12">
                   <Image
                     src={`/icons/badge/${badge.type}_${level}.png`}
                     alt={`${badge.type} badge`}
@@ -878,7 +882,7 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
           {/* 🥈 50승 뱃지 */}
           {fiftyWinSeasons.length > 0 && (
             <div className="flex items-center text-white relative group">
-              <div className="relative w-14 h-14">
+              <div className="relative w-12 h-12">
                 <Image
                   src="/icons/badge/50win.png"
                   alt="50승 뱃지"
@@ -898,7 +902,7 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
           {/* 🏆 100승 뱃지 */}
           {hundredWinSeasons.length > 0 && (
             <div className="flex items-center text-white relative group">
-              <div className="relative w-14 h-14">
+              <div className="relative w-12 h-12">
                 <Image
                   src="/icons/badge/100win.png"
                   alt="100승 뱃지"
@@ -922,7 +926,7 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
 
             return (
               <div key={`prize-${idx}`} className="flex items-center text-white relative group">
-                <div className="relative w-14 h-14">
+                <div className="relative w-12 h-12">
                   <Image
                     src={`/icons/badge/${badge.type}_${level}.png`}
                     alt={`${badgeName} badge`}
