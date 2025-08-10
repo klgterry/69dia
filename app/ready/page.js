@@ -975,11 +975,11 @@ export default function TeamPage() {
         {/* 즐겨찾기 영역 (배경 이미지 + 버튼 오버레이) */}
         <div className="relative w-[820px] h-[100px] mx-auto -mt-10">
           <Image
-            src="/icons/labels/favorite_title.png"
-            alt="즐겨찾기 제목"
-            fill
-            className="object-contain"
-          />
+    src="/icons/labels/favorite_title.png"
+    alt="즐겨찾기 제목"
+    fill
+    className="object-fill" // 비율 무시하고 컨테이너 꽉 채움
+  />
 
           <div className="absolute top-1/2 left-[54%] transform -translate-x-1/2 -translate-y-1/2 flex flex-wrap justify-left gap-1 w-[90%]">
             {isTop10Loading ? (
