@@ -317,28 +317,19 @@ export default function TeamPage() {
       parsedPlayers[p] = selectedClasses[p] || [];
     }
 
-    // 📦 2️⃣ 여기서 유저 요약 정보 fetch
-    const userSummary = await fetchUserSummary();
-    console.log("📄 전체 유저 요약:", userSummary);
+    const userSummary = await fetch("/api/gasApi?action=getCurrentSeasonSummary")
+      .then(res => res.json());
 
-    if (userSummary.length === 0) {
-      console.warn("⚠️ 유저 요약 데이터가 없습니다.");
+    console.log("📄 최신 시즌 유저 요약:", userSummary);
+
+    if (!userSummary || userSummary.length === 0) {
+      console.warn("⚠️ 최신 시즌 유저 요약 데이터가 없습니다.");
       return;
     }
 
-    // ✅ 최신 시즌 자동 추출
-    const latestSeason = userSummary[userSummary.length - 1].SEASON;
-    console.log("🆕 최신 시즌:", latestSeason);
-
-    // ✅ 최신 시즌 필터링
-    const filteredSummary = userSummary.filter(
-      (user) => user.SEASON === latestSeason
-    );
-    console.log("🔍 최신 시즌 유저 요약:", filteredSummary);
-
     // ✅ recentClassMap 생성 (PLAYER 기준!)
     const recentClassMap = {};
-    filteredSummary.forEach((user) => {
+    userSummary.forEach((user) => {
       const username = (user.PLAYER || "").trim(); // ✅ 정확히 player 명으로
       const recentClass = (user.RECENT_GAME_1_CLASS || "").trim();
 
