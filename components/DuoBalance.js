@@ -33,7 +33,10 @@ export default function DuoBalance() {
       .filter(row =>
         row.SEASON === rankingSeason &&
         row.WINRATE_RANK &&
-        row.WINS > 0
+        (!selectedUserA && !selectedUserB
+          ? row.WINS >= 10 // ✅ 선택 안 했을 때 10승 이상만
+          : row.WINS > 0   // ✅ 선택 시 기존 로직
+        )
       )
       .sort((a, b) => a.WINRATE_RANK - b.WINRATE_RANK);
 
@@ -64,43 +67,45 @@ export default function DuoBalance() {
     });
   };
 
-
-
   const totalRankingPages = Math.ceil(
     duoData.filter(row =>
       row.SEASON === rankingSeason &&
       row.WINRATE_RANK &&
-      row.WINS > 0
+      (!selectedUserA && !selectedUserB
+        ? row.WINS >= 10
+        : row.WINS > 0
+      )
     ).length / rankingPageSize
   );
 
-
   useEffect(() => {
-    fetchDuoStats();
+  fetchDuoStats(false); // 처음엔 유저 선택 안 했으니 10승 시트
   }, []);
 
-  const fetchDuoStats = async () => {
-    const res = await fetch("/api/gasApi?action=getUserDuoStats");
+  const fetchDuoStats = async (isUserSelected = false) => {
+    // ✅ 유저 미선택이면 10승 시트, 선택 시 전체 시트
+    const sheetName = isUserSelected ? "DuoStats" : "DuoStats_10Wins";
+
+    const res = await fetch(`/api/gasApi?action=getUserDuoStats&sheet=${sheetName}`);
     const data = await res.json();
     setDuoData(data);
-  
+
     const users = Array.from(
-        new Set(
-          data
-            .filter((row) => row.WINRATE_RANK !== "" && row.TOTAL >= 5 && row.WINS >= 1)
-            .flatMap((row) => [row.PLAYER1, row.PLAYER2])
-        )
-      );
-      setUserList(users);
-      setAvailableUsers(users);      
-  
-    // ✅ 중복 제거 순서: 먼저 filter → 나중에 Set
+      new Set(
+        data
+          .filter((row) => row.WINRATE_RANK !== "" && row.TOTAL >= 5 && row.WINS >= 1)
+          .flatMap((row) => [row.PLAYER1, row.PLAYER2])
+      )
+    );
+
+    setUserList(users);
+    setAvailableUsers(users);
+
     const rawSeasons = data.map((r) => r.SEASON).filter((s) => s !== "ALL");
     const uniqueSeasons = Array.from(new Set(rawSeasons));
-  
+
     setSeasonList(["ALL", ...uniqueSeasons]);
   };
-  
 
   const handleReset = () => {
     setSelectedUserA("");
@@ -110,11 +115,16 @@ export default function DuoBalance() {
     setPage(1);
   };
 
-  const selectUserA = (user) => {
+  const selectUserA = async (user) => {
     setSelectedUserA(user);
     setSelectedUserB("");
-  
-    const partners = duoData
+
+    // ✅ 전체 데이터 불러오기
+    const res = await fetch(`/api/gasApi?action=getUserDuoStats&sheet=DuoStats`);
+    const fullData = await res.json();
+    setDuoData(fullData);
+
+    const partners = fullData
       .filter(
         (row) =>
           (row.PLAYER1 === user || row.PLAYER2 === user) &&
@@ -123,11 +133,10 @@ export default function DuoBalance() {
           row.WINS >= 1
       )
       .map((row) => (row.PLAYER1 === user ? row.PLAYER2 : row.PLAYER1));
-  
+
     const uniquePartners = Array.from(new Set(partners));
-  
     setAvailableUsers(["All", ...uniquePartners]);
-  };  
+  };
 
   const filteredData = duoData
   .filter((row) => {
@@ -250,7 +259,7 @@ export default function DuoBalance() {
         {!selectedUserA && !selectedUserB && (
           <>
             {/* 시즌 드롭다운 */}
-            <div className="w-full flex justify-end pr-4 mt-6">
+            <div className="w-full flex justify-end pr-1 mt-2">
               <select
                 value={rankingSeason}
                 onChange={(e) => {
@@ -268,8 +277,9 @@ export default function DuoBalance() {
             </div>
 
             {/* 타이틀 */}
-            <h3 className="text-2xl font-bold text-white -mb-3 -mt-10">
-              🔥 DUO POWER RANKING (Top 100) - <span className="text-yellow-400">{rankingSeason}</span>
+            <h3 className="text-2xl font-bold text-white -mb-3 -mt-15">
+              🔥 DUO POWER RANKING (MMR) -{" "}
+              <span className="text-yellow-400 text-lg">{rankingSeason}</span>
             </h3>
 
             {/* 카드형 랭킹 리스트 */}
