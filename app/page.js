@@ -35,7 +35,7 @@ export default function HomePage() {
   const router = useRouter();
 
   // app/page.js 또는 HomePage 컴포넌트 내부
-  useEffect(() => {
+  /*useEffect(() => {
     openPopup();
   }, []);
   
@@ -46,11 +46,11 @@ export default function HomePage() {
         return;
     } else {
       // 데스크탑용 기본 팝업
-      window.open(
+      /*window.open(
         "/popup1",
         "popup3",
         "width=509,height=800,left=0,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
-      );
+      );*/
 
       /*window.open(
         "/popup2",
@@ -58,10 +58,10 @@ export default function HomePage() {
         "width=406,height=406,left=509,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
       );*/
 
-    }
-  }
+    //}
+  //}
     
-  useEffect(() => {
+  /*useEffect(() => {
     fetchSeasonList().then((data) => {
       setSeasonList(data);
       if (data.length > 0) {
@@ -69,6 +69,21 @@ export default function HomePage() {
         setSelectedSeason(latest);
       }
     });
+  }, []);*/
+
+  useEffect(() => {
+    const staticSeasonList = [
+      { TITLE: "25. 3월 시즌" },
+      { TITLE: "25. 4월 시즌1" },
+      { TITLE: "25. 4월 시즌2" },
+      { TITLE: "25. 5월 시즌" },
+      { TITLE: "25. 6월 시즌" },
+      { TITLE: "25. 7월 시즌" },
+      { TITLE: "25. 8월 시즌" },
+    ];
+
+    setSeasonList(staticSeasonList);
+    setSelectedSeason(staticSeasonList[staticSeasonList.length - 1]);
   }, []);
 
   const isCurrentSeason = selectedSeason?.TITLE === seasonList.at(-1)?.TITLE;
