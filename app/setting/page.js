@@ -134,6 +134,7 @@ export default function SettingPage() {
         {[
           { name: "home", path: "/" },
           //{ name: "rule", path: "/rule" },
+          { name: "week", path: "/week" },
           { name: "setting", path: "/setting" },
           { name: "user", path: "/user" },
           { name: "history", path: "/history" },
@@ -160,7 +161,7 @@ export default function SettingPage() {
     {/* ✅ 패널을 수직 중앙에 배치하기 위한 flex-grow 영역 */}
     <div className="mt-12 flex flex-col items-center">
   {/* 타이틀 */}
-  <h1 className="text-4xl font-serif tracking-wide mb-10">pk setting</h1>
+  <h1 className="text-4xl font-serif tracking-wide mb-10">PK setting</h1>
 
   {/* 버튼 행 */}
   <div className="w-full max-w-4xl flex flex-wrap items-center justify-center gap-8 px-6 overflow-visible">

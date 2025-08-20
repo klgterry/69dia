@@ -127,6 +127,7 @@ export default function PrizePage() {
               {[
                   { name: "home", path: "/" },
                   //{ name: "rule", path: "/rule" },
+                  { name: "week", path: "/week" },
                   { name: "setting", path: "/setting" },
                   { name: "user", path: "/user" },
                   { name: "history", path: "/history" },
