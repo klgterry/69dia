@@ -298,7 +298,7 @@ export default function UserPage() {
         </div>
         {[
           { name: "home", path: "/" },
-          { name: "rule", path: "/rule" },
+          //{ name: "rule", path: "/rule" },
           { name: "setting", path: "/setting" },
           { name: "user", path: "/user" },
           { name: "history", path: "/history" },

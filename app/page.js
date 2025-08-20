@@ -158,7 +158,7 @@ export default function HomePage() {
           {/* 네비게이션 버튼 */}
           {[
             { name: "home", path: "/" },
-            { name: "rule", path: "/rule" },
+            //{ name: "rule", path: "/rule" },
             { name: "setting", path: "/setting" },
             { name: "user", path: "/user" },
             { name: "history", path: "/history" },
@@ -364,7 +364,7 @@ function UserProfileImage({ username }) {
 // ✅ 클래스 아이콘 컴포넌트 (onError 필요 없음)
 function ClassIcon({ src, alt }) {
   return (
-    <div className="relative w-9 h-9">
+    <div className="relative w-8 h-8">
       <Image src={src} alt={alt} fill className="object-contain" />
     </div>
   );

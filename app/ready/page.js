@@ -783,7 +783,7 @@ export default function TeamPage() {
         {/* 네비게이션 버튼 */}
         {[
           { name: "home", path: "/" },
-          { name: "rule", path: "/rule" },
+          //{ name: "rule", path: "/rule" },
           { name: "setting", path: "/setting" },
           { name: "user", path: "/user" },
           { name: "history", path: "/history" },

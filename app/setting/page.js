@@ -1,8 +1,96 @@
 "use client"; // ✅ 클라이언트 컴포넌트로 명시
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from 'next/navigation';
+
+async function fetchRules() {
+  const res = await fetch("/api/gasApi?action=getRules");
+  if (!res.ok) throw new Error("Failed to fetch rules");
+  return res.json();
+}
+
+function RulePanel() {
+  const [rules, setRules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchRules()
+      .then((data) => setRules(data))
+      .catch((err) => setError(err.message ?? "Unknown error"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (error) {
+    return (
+      <div className="bg-red-900/30 border border-red-500 text-red-200 p-4 rounded-lg mt-8 max-w-3xl mx-auto">
+        Error: {error}
+      </div>
+    );
+  }
+
+  // 카테고리 단위로 묶기
+  const groupedRules = rules.reduce((acc, rule) => {
+    if (
+      typeof rule.category === "string" &&
+      (rule.category.startsWith("[") || rule.category.startsWith("※"))
+    ) {
+      acc.push({ category: rule.category, rules: [] });
+    } else {
+      if (acc.length > 0) acc[acc.length - 1].rules.push(rule.category);
+    }
+    return acc;
+  }, []);
+
+  return (
+    <section className="mt-16">
+      <div className="bg-gray-800 p-8 rounded-lg max-w-3xl mx-auto overflow-x-auto">
+        <h2 className="text-center text-xl font-semibold">📜 게임 규칙</h2>
+
+        {loading ? (
+          <div className="text-center text-xl text-gray-300 mt-6">
+            <div className="animate-spin inline-block w-12 h-12 border-4 border-t-4 border-gray-600 border-solid rounded-full" />
+            <p className="mt-2">로딩 중...</p>
+          </div>
+        ) : (
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-8">
+            {/* 좌측 */}
+            <div>
+              {groupedRules.slice(0, Math.ceil(groupedRules.length / 2)).map((group, i) => (
+                <div key={`left-${i}`} className="bg-gray-700 p-4 rounded-lg mt-4">
+                  <h3 className="text-lg font-bold text-yellow-400">{group.category}</h3>
+                  <div className="mt-2 space-y-2">
+                    {group.rules.map((r, idx) => (
+                      <p key={idx} className="text-base">
+                        {r}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* 우측 */}
+            <div>
+              {groupedRules.slice(Math.ceil(groupedRules.length / 2)).map((group, i) => (
+                <div key={`right-${i}`} className="bg-gray-700 p-4 rounded-lg mt-4">
+                  <h3 className="text-lg font-bold text-yellow-400">{group.category}</h3>
+                  <div className="mt-2 space-y-2">
+                    {group.rules.map((r, idx) => (
+                      <p key={idx} className="text-base">
+                        {r}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 const classOptions = [
   { name: "드루이드", key: "druid", url: "https://blog.naver.com/lovlince/222848167249" },
@@ -11,11 +99,10 @@ const classOptions = [
   { name: "팔라딘", key: "paladin", url: "https://blog.naver.com/lovlince/222848170589" },
 ];
 
-
-
 export default function SettingPage() {
   const [selected, setSelected] = useState(null);
   const router = useRouter(); // ✅ router 객체 생성
+  const [hovered, setHovered] = useState(null);
 
   const handleClick = (key) => {
     setSelected((prev) => (prev === key ? null : key)); // 토글 선택
@@ -46,7 +133,7 @@ export default function SettingPage() {
         {/* 네비게이션 버튼 */}
         {[
           { name: "home", path: "/" },
-          { name: "rule", path: "/rule" },
+          //{ name: "rule", path: "/rule" },
           { name: "setting", path: "/setting" },
           { name: "user", path: "/user" },
           { name: "history", path: "/history" },
@@ -71,40 +158,46 @@ export default function SettingPage() {
         ))}
       </nav>
     {/* ✅ 패널을 수직 중앙에 배치하기 위한 flex-grow 영역 */}
-    <div className="flex flex-1 items-center justify-center mt-20">
-      <div
-        className="w-[512px] h-[384px] relative flex items-center justify-center"
-        style={{
-          backgroundImage: "url('/bg_setting.png')",
-          backgroundSize: "100% 100%",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        <div className="grid grid-cols-2 gap-4">
-            {classOptions.map(({ name, key, url }) => {
-              const isSelected = selected === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => handleClassClick(key, url)} // ✅ 이름 변경
-                  className="relative w-[180px] h-[50px] p-0"
-                >
-                  <Image
-                    src={
-                      isSelected
-                        ? `/btn_${key}_pressed.png`
-                        : `/btn_${key}.png`
-                    }
-                    alt={name}
-                    fill
-                    className="object-contain"
-                  />
-                </button>
-              );
-            })}
-          </div>
-      </div>
-    </div>
+    <div className="mt-12 flex flex-col items-center">
+  {/* 타이틀 */}
+  <h1 className="text-4xl font-serif tracking-wide mb-10">pk setting</h1>
+
+  {/* 버튼 행 */}
+  <div className="w-full max-w-4xl flex flex-wrap items-center justify-center gap-8 px-6 overflow-visible">
+    {classOptions.map(({ name, key, url }) => {
+      const isSelected = selected === key;
+      const src =
+        isSelected
+          ? `/btn_${key}_pressed.png`
+          : hovered === key
+          ? `/btn_${key}.png` // 없으면 기본으로 표시됨
+          : `/btn_${key}.png`;
+
+      return (
+        <button
+          key={key}
+          onClick={() => handleClassClick(key, url)}
+          onMouseEnter={() => setHovered(key)}
+          onMouseLeave={() => setHovered(null)}
+          className="relative block"
+          style={{ width: 160, height: 48 }}
+          aria-label={name}
+          title={name}
+        >
+          <Image
+            src={src}
+            alt={name}
+            fill
+            className="object-contain"
+            sizes="160px"
+          />
+        </button>
+      );
+    })}
+  </div>
+</div>
+    {/* 하단: 규칙 패널 */}
+      <RulePanel />
     </div>
   );
 }
