@@ -52,42 +52,70 @@ export default function WeekPage() {
   const [duos, setDuos] = useState([]);
   const [allSeason, setAllSeason] = useState([]); // ALL SEASONS
   const [isLoading, setIsLoading] = useState(true);
+  const [allSeasonStreak, setAllSeasonStreak] = useState([]);
 
   useEffect(() => {
-    async function fetchAll() {
-      setIsLoading(true);
-      try {
-        const [winsRes, streaksRes, duosRes, seasonsRes] = await Promise.all([
-          fetch("/api/gasApi?action=getWeeklyRanking"),
-          fetch("/api/gasApi?action=getWeeklyWinStreakRanking"),
-          fetch("/api/gasApi?action=getWeeklyDuoRanking"),
-          fetchLeaderboardForAllSeason(),
-        ]);
+  async function fetchAll() {
+    setIsLoading(true);
+    try {
+      const [winsRes, streaksRes, duosRes, seasonsRes, seasonsStreakRes] = await Promise.all([
+        fetch("/api/gasApi?action=getWeeklyRanking"),
+        fetch("/api/gasApi?action=getWeeklyWinStreakRanking"),
+        fetch("/api/gasApi?action=getWeeklyDuoRanking"),
+        fetchLeaderboardForAllSeason(), // 이미 json 파싱된 형태로 반환
+        fetch("/api/gasApi?action=getAllSeasonsStreakRanking"), // ✅ 통산 연승
+      ]);
 
-        const [winsData, streaksData, duosData, seasonsData] = await Promise.all([
-          winsRes.json(),
-          streaksRes.json(),
-          duosRes.json(),
-          Promise.resolve(seasonsRes), // 이미 JSON 파싱 완료 형태
-        ]);
+      const [winsData, streaksData, duosData, seasonsData, seasonsStreakData] = await Promise.all([
+        winsRes.json(),
+        streaksRes.json(),
+        duosRes.json(),
+        Promise.resolve(seasonsRes), // 이미 JSON 파싱 완료 형태
+        seasonsStreakRes.json(),
+      ]);
 
-        const sortedWins = assignRanks([...winsData].sort((a, b) => b.WINS - a.WINS), "WINS");
-        const sortedStreaks = assignRanks([...streaksData].sort((a, b) => b.STREAK - a.STREAK), "STREAK");
-        const sortedDuos = assignRanks([...duosData].sort((a, b) => b.WINS - a.WINS), "WINS");
+      // 주간 3종 정렬 + 랭크 부여
+      const sortedWins = assignRanks([...winsData].sort((a, b) => b.WINS - a.WINS), "WINS");
+      const sortedStreaks = assignRanks([...streaksData].sort((a, b) => b.STREAK - a.STREAK), "STREAK");
+      const sortedDuos = assignRanks([...duosData].sort((a, b) => b.WINS - a.WINS), "WINS");
 
-        setWins(sortedWins);
-        setStreaks(sortedStreaks);
-        setDuos(sortedDuos);
-        setAllSeason(seasonsData.players || []);
-      } catch (err) {
-        console.error("❌ 데이터 로딩 실패:", err);
-        setAllSeason([]);
-      } finally {
-        setIsLoading(false);
-      }
+      setWins(sortedWins);
+      setStreaks(sortedStreaks);
+      setDuos(sortedDuos);
+
+      // 통산 승수(기존)
+      setAllSeason(seasonsData.players || []);
+
+      // ✅ 통산 연승(신규): 다양한 응답 포맷 대응
+      const streakArrRaw = Array.isArray(seasonsStreakData)
+        ? seasonsStreakData
+        : Array.isArray(seasonsStreakData?.result)
+        ? seasonsStreakData.result
+        : [];
+
+      const normalizedStreak = streakArrRaw.map((x) => ({
+        username: x.username ?? x.PLAYER ?? x.name ?? "Unknown",
+        streak: Number(x.streak ?? x.STREAK ?? 0),
+        rank: x.rank ?? null,
+      }));
+
+      const streakWithRank =
+        normalizedStreak.every((p) => p.rank == null)
+          ? assignRanks([...normalizedStreak].sort((a, b) => b.streak - a.streak), "streak")
+          : normalizedStreak;
+
+      setAllSeasonStreak(streakWithRank.slice(0, 15));
+    } catch (err) {
+      console.error("❌ 데이터 로딩 실패:", err);
+      setAllSeason([]);
+      setAllSeasonStreak([]);
+    } finally {
+      setIsLoading(false);
     }
-    fetchAll();
-  }, []);
+  }
+  fetchAll();
+}, []);
+
 
   function assignRanks(data, key = "WINS") {
     let rank = 1;
@@ -202,12 +230,11 @@ export default function WeekPage() {
         ))}
       </nav>
 
-      {/* 두 패널 레이아웃 */}
-      <div className="mt-10 mx-auto w-full max-w-[1280px] px-6">
-        <div className="grid gap-10 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-10 mx-auto w-full max-w-[800px] px-6">
+        <div className="grid gap-10 grid-cols-1">
           {/* ===== LEFT: Hot Players / LAST WEEK ===== */}
           <section
-            className="relative min-h-[560px] p-6 bg-black/90 rounded"
+            className="relative min-h-[580px] p-6 bg-black/90 rounded"
             style={{
               backgroundImage: "url('/icons/bg/fire_frame.png')",
               backgroundRepeat: "no-repeat",
@@ -217,9 +244,11 @@ export default function WeekPage() {
           >
             {/* 주간 테이블 */}
             {isLoading ? (
-              <div className="mt-60 text-center text-gray-300">Loading…</div>
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none rounded">
+                <span className="text-gray-200">Loading…</span>
+              </div>
             ) : (
-              <div className="mt-40 w-full overflow-x-auto">
+              <div className="mt-30 w-full overflow-x-auto">
                 <table className="table-auto w-[350px] h-[400px] mx-auto text-left border-separate border-spacing-x-2">
                   <thead>
                     <tr className="text-center text-2xl">
@@ -233,14 +262,14 @@ export default function WeekPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.from({ length: 10 }).map((_, idx) => {
+                    {Array.from({ length: 12 }).map((_, idx) => {
                       const win = wins[idx];
                       const streak = streaks[idx];
                       const duo = duos[idx];
                       return (
                         <tr key={idx} className="text-center">
                           {/* 승수 */}
-                          <td>
+                          <td className="py-1.5">
                             {win && getBadge(win.rank) ? (
                               <div className="relative w-5 h-5 mx-auto">
                                 <Image src={getBadge(win.rank)} alt="badge" fill className="object-contain" />
@@ -253,7 +282,7 @@ export default function WeekPage() {
                           <td className={`text-left pr-6 ${win ? getTextClass(win.rank) : ""}`}>{win?.WINS ?? ""}</td>
 
                           {/* 연승 */}
-                          <td className="pl-8 border-l-4 border-gray-400">
+                          <td className="py-1.5 pl-8 border-l-4 border-gray-400">
                             {streak && getBadge(streak.rank) ? (
                               <div className="relative w-5 h-5 mx-auto pl-8">
                                 <Image src={getBadge(streak.rank)} alt="badge" fill className="object-contain" />
@@ -266,7 +295,7 @@ export default function WeekPage() {
                           <td className={`text-left pr-6 ${streak ? getTextClass(streak.rank) : ""}`}>{streak?.STREAK ?? ""}</td>
 
                           {/* 듀오 */}
-                          <td className="pl-8 border-l-4 border-gray-400">
+                          <td className="py-1.5 pl-8 border-l-4 border-gray-400">
                             {duo && getBadge(duo.rank) ? (
                               <div className="relative w-5 h-5 mx-auto pl-8">
                                 <Image src={getBadge(duo.rank)} alt="badge" fill className="object-contain" />
@@ -287,62 +316,127 @@ export default function WeekPage() {
           </section>
 
           {/* ===== RIGHT: ALL SEASONS ===== */}
+          {/* ===== 아래쪽: ALL SEASONS (승수/연승) ===== */}
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+            {/* 왼쪽: 통산 승수 */}
             <aside
-            className="relative min-h-[560px] p-6 bg-black/90 rounded"
-            style={{
+              className="relative min-h-[560px] p-6 bg-black/90 rounded"
+              style={{
                 backgroundImage: "url('/icons/bg/all_season.png')",
                 backgroundRepeat: "no-repeat",
                 backgroundPosition: "center",
                 backgroundSize: "100% 100%",
-            }}
+              }}
+              aria-busy={isLoading}
             >
-            {/* 1-15위 / 닉네임 / 통산승수 */}
-            {isLoading ? (
-                <div className="mt-60 text-center text-gray-300">Loading…</div>
-            ) : (
-                <div className="mt-15 overflow-x-auto">
-                <table className="w-full text-sm">
-                    <thead className="uppercase text-gray-300">
-                    <tr>
-                        <th className="py-2 text-center w-14">순위</th>
-                        <th className="py-2 text-center">닉네임</th>
-                        <th className="py-2 text-center w-24 pr-1">통산승수</th>
-                    </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-700">
-                    {allSeason.map((p, i) => (
-                        <tr key={i} className="hover:bg-white/5">
-                        <td className="py-2 text-center">
-                            {p.rank <= 3 ? (
-                            <div className="relative w-5 h-5 mx-auto">
-                                <Image src={getBadge(p.rank)} alt="badge" fill className="object-contain" />
-                            </div>
-                            ) : (
-                            <span>{p.rank}</span>
-                            )}
-                        </td>
-                        <td className="py-2">
-                            <div className="flex items-center gap-2 pl-12">
-                            <div className="relative w-5 h-5 rounded overflow-hidden">
-                                <Image
-                                src={`/icons/users/웹_${(p.username || "Unknown").trim()}.jpg`}
-                                alt={p.username || "Unknown"}
-                                fill
-                                className="object-cover"
-                                onError={(e) => (e.currentTarget.src = "/icons/users/default.png")}
-                                />
-                            </div>
-                            <span className={`truncate ${getTextClass(p.rank)}`}>{p.username || "Unknown"}</span>
-                            </div>
-                        </td>
-                        <td className={`py-2 text-right pr-10 ${getTextClass(p.rank)}`}>{p.wins}</td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
+              {/* ⬇️ 로딩 오버레이 (상단에 덮기) */}
+              {isLoading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none rounded">
+                  <span className="text-gray-200">Loading…</span>
                 </div>
-            )}
+              )}
+
+              <table className="w-full text-sm mt-15">
+                <thead className="uppercase text-gray-300">
+                  <tr>
+                    <th className="py-2 text-center w-14">순위</th>
+                    <th className="py-2 text-center pl-8">닉네임</th>
+                    <th className="py-2 text-center w-24 pl-6">통산 승수</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {allSeason.map((p, i) => (
+                    <tr key={i} className="hover:bg-white/5">
+                      <td className="py-2 text-center">
+                        {p.rank <= 3 ? (
+                          <div className="relative w-5 h-5 mx-auto">
+                            <Image src={getBadge(p.rank)} alt="badge" fill className="object-contain" />
+                          </div>
+                        ) : (
+                          <span>{p.rank}</span>
+                        )}
+                      </td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-2 pl-16">
+                          <div className="relative w-5 h-5 rounded overflow-hidden">
+                            <Image
+                              src={`/icons/users/웹_${(p.username || "Unknown").trim()}.jpg`}
+                              alt={p.username || "Unknown"}
+                              fill
+                              className="object-cover"
+                              onError={(e) => (e.currentTarget.src = "/icons/users/default.png")}
+                            />
+                          </div>
+                          <span className={`truncate ${getTextClass(p.rank)}`}>{p.username || "Unknown"}</span>
+                        </div>
+                      </td>
+                      <td className={`py-2 text-right pr-6 ${getTextClass(p.rank)}`}>{p.wins}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </aside>
+
+            {/* 오른쪽: 통산 연승 */}
+            <aside
+              className="relative min-h-[560px] p-6 bg-black/90 rounded"
+              style={{
+                backgroundImage: "url('/icons/bg/all_season.png')",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+                backgroundSize: "100% 100%",
+              }}
+              aria-busy={isLoading}
+            >
+              {/* ⬇️ 로딩 오버레이 (상단에 덮기) */}
+              {isLoading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none rounded">
+                  <span className="text-gray-200">Loading…</span>
+                </div>
+              )}
+
+              <table className="w-full text-sm mt-15">
+                <thead className="uppercase text-gray-300">
+                  <tr>
+                    <th className="py-2 text-center w-14">순위</th>
+                    <th className="py-2 text-center pl-8">닉네임</th>
+                    <th className="py-2 text-center w-24 pl-6">최고 연승</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {allSeasonStreak.map((p, i) => (
+                    <tr key={i} className="hover:bg-white/5">
+                      <td className="py-2 text-center">
+                        {p.rank <= 3 ? (
+                          <div className="relative w-5 h-5 mx-auto">
+                            <Image src={getBadge(p.rank)} alt="badge" fill className="object-contain" />
+                          </div>
+                        ) : (
+                          <span>{p.rank}</span>
+                        )}
+                      </td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-2 pl-16">
+                          <div className="relative w-5 h-5 rounded overflow-hidden">
+                            <Image
+                              src={`/icons/users/웹_${(p.username || "Unknown").trim()}.jpg`}
+                              alt={p.username || "Unknown"}
+                              fill
+                              className="object-cover"
+                              onError={(e) => (e.currentTarget.src = "/icons/users/default.png")}
+                            />
+                          </div>
+                          <span className={`truncate ${getTextClass(p.rank)}`}>{p.username || "Unknown"}</span>
+                        </div>
+                      </td>
+                      <td className={`py-2 text-right pr-6 ${getTextClass(p.rank)}`}>{p.streak}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </aside>
+          </div>
+
 
         </div>
       </div>
