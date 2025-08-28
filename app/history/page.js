@@ -115,7 +115,7 @@ export default function HistoryPage() {
           backgroundSize: "900px 400px", // ✅ 너비와 높이를 명시
         }}
       >
-        <h3 className="text-4xl font-bold text-white mb-4 text-center drop-shadow-sm mt-5">📜 최근 5경기 전체 이력</h3>
+        <h3 className="text-4xl font-bold text-white mb-4 text-center drop-shadow-sm mt-5">📜 최근 5경기 이력</h3>
 
         <table className="w-full border-collapse border border-gray-700 text-center text-sm bg-transparent">
           <thead>
