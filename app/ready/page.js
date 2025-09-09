@@ -188,6 +188,49 @@ function getPlayerCount(players) {
   return names.length;
 }
 
+// ===================== DEBUG UTILS (ADD) =====================
+function dbgTitle(title) {
+  console.log(`\n\n════════════════════════════════════════════════════`);
+  console.log(`🔎 ${title}`);
+  console.log(`════════════════════════════════════════════════════`);
+}
+
+function fmtTeam(arr) {
+  if (!arr) return '[]';
+  return '[' + arr.map(p => `${p.username}(${Math.round(p.effectiveMMR ?? p.mmr ?? 0)})`).join(', ') + ']';
+}
+
+function fmtList(arr) {
+  return arr.map(p => `${p.username}(${Math.round(p.effectiveMMR ?? p.mmr ?? 0)})`).join(', ');
+}
+
+// ✅ 강제 분리(1&2, 7&8) 시드 + 유틸 (JS)
+function seedHardSplit(sorted) {
+  dbgTitle('seedHardSplit: 하드 스플릿 시드 생성');
+  console.log('정렬 결과(내림차순):', fmtList(sorted));
+  const p1 = sorted[0];
+  const p2 = sorted[1];
+  const p7 = sorted[6];
+  const p8 = sorted[7];
+  console.log(`핵심 포인트 → P1:${p1.username}, P2:${p2.username}, P7:${p7.username}, P8:${p8.username}`);
+
+  const flip = Math.random() < 0.5;
+  const seedA = [p1, flip ? p7 : p8];
+  const seedB = [p2, flip ? p8 : p7];
+  console.log(`flip=${flip ? '1&7 vs 2&8' : '1&8 vs 2&7'}`);
+  console.log('seedA:', fmtTeam(seedA));
+  console.log('seedB:', fmtTeam(seedB));
+  return { seedA, seedB };
+}
+
+function containsBoth(team, a, b) {
+  const u = new Set(team.map(p => p.username));
+  const ok = !(u.has(a.username) && u.has(b.username));
+  console.log(`containsBoth? team=[${team.map(p=>p.username).join(', ')}], pair=${a.username}&${b.username} → ${ok ? '분리 OK' : '같은 팀(위반)'}`);
+  return u.has(a.username) && u.has(b.username);
+}
+// ================== END DEBUG UTILS (ADD) ====================
+
 export default function TeamPage() {
   const [players, setPlayers] = useState("");
   const [selectedClasses, setSelectedClasses] = useState({});
@@ -370,68 +413,85 @@ export default function TeamPage() {
     }
   };
 
+  // ✅ 초기 팀 생성: 1&2, 7&8 강제 분리 + 풍부한 로그
   const runInitialTeamGeneration = (sorted, parsedPlayers) => {
-    console.log("🚀 초기 팀 생성 모드 시작");
-    const topHalf = sorted.slice(0, 4);
-    const bottomHalf = sorted.slice(4, 8);
+    dbgTitle('🚀 초기 팀 생성 (Hard Split + Debug Logs)');
 
-    const getRandomSamples = (arr, n) => {
-      const copy = [...arr];
-      const result = [];
-      for (let i = 0; i < n; i++) {
-        const idx = Math.floor(Math.random() * copy.length);
-        result.push(copy.splice(idx, 1)[0]);
-      }
-      return result;
-    };
+    // 1) 강제 분리 시드 구성
+    const { seedA, seedB } = seedHardSplit(sorted); // [1위 + (7|8)], [2위 + (8|7)]
 
-    let attempt = 0;
-    const maxAttempts = 10;
-    let success = false;
-
-    while (attempt < maxAttempts && !success) {
-      const team1Data = [...getRandomSamples(topHalf, 2), ...getRandomSamples(bottomHalf, 2)];
-      const team1Usernames = new Set(team1Data.map(p => p.username));
-      const team2Data = sorted.filter(p => !team1Usernames.has(p.username));
-
-      const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
-      const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
-
-      const avgMMR = (team) => {
-        if (!team || team.length === 0) return 0;
-        const mmrs = team.map(p => p.effectiveMMR).filter(m => typeof m === "number" && !isNaN(m));
-        return mmrs.length > 0 ? Math.round(mmrs.reduce((a, b) => a + b, 0) / mmrs.length) : 0;
-      };
-
-      console.log(`🔁 시도 ${attempt + 1} - 초기 팀 배정:`, {
-        team1: team1Assigned?.map(p => ({ username: p.username, mmr: p.effectiveMMR })),
-        team2: team2Assigned?.map(p => ({ username: p.username, mmr: p.effectiveMMR })),
-        team1AvgMMR: avgMMR(team1Assigned || []),
-        team2AvgMMR: avgMMR(team2Assigned || []),
-      });
-
-      if (team1Assigned && team2Assigned) {
-        setTeamA(team1Assigned);
-        setTeamB(team2Assigned);
-        setInitialTeamA(team1Assigned);
-        setInitialTeamB(team2Assigned);
-        setTeamAScore(0);
-        setTeamBScore(0);
-        setPreviousTeamMap(
-          Object.fromEntries([
-            ...team1Assigned.map(p => [p.username, "A"]),
-            ...team2Assigned.map(p => [p.username, "B"]),
-          ])
-        );
-        setTeamMode("rematch");
-        setTimeout(() => {
-          setTeamsGenerated(true);
-          playSound("victory.mp3");
-        }, TOTAL_SLOT_TIME);
-        success = true;
-      }
-      attempt++;
+    // 2) 중간권(3~6위) 섞어서 2:2 분배
+    const mid = [...sorted.slice(2, 6)];
+    console.log('중간권 원본(3~6):', fmtList(mid));
+    for (let i = mid.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [mid[i], mid[j]] = [mid[j], mid[i]];
     }
+    console.log('중간권 셔플 결과:', fmtList(mid));
+
+    const team1Data = [...seedA, mid[0], mid[2]];
+    const team2Data = [...seedB, mid[1], mid[3]];
+    console.log('초기 분배 team1Data:', fmtTeam(team1Data));
+    console.log('초기 분배 team2Data:', fmtTeam(team2Data));
+
+    // 방어적 체크
+    const p1 = sorted[0], p2 = sorted[1], p7 = sorted[6], p8 = sorted[7];
+    const violates =
+      containsBoth(team1Data, p1, p2) || containsBoth(team2Data, p1, p2) ||
+      containsBoth(team1Data, p7, p8) || containsBoth(team2Data, p7, p8);
+
+    if (violates) {
+      console.warn('⚠️ 강제 분리 위반 감지 → 초기화 중단');
+      alert('팀 구성 중 오류가 발생했습니다. 다시 시도해 주세요.');
+      return;
+    }
+    console.log('✅ 강제 분리 조건 통과');
+
+    // 3) 클래스 배정
+    console.log('assignPlayerRoles 시작 (team1)');
+    const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
+    console.log('assignPlayerRoles 시작 (team2)');
+    const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
+
+    if (!team1Assigned || !team2Assigned) {
+      console.log('❌ 클래스 배정 실패. team1Assigned:', team1Assigned, 'team2Assigned:', team2Assigned);
+      alert('클래스 배정에 실패했습니다. 다시 시도해 주세요.');
+      return;
+    }
+
+    // 배정 결과 요약
+    const summarize = (team, label) => {
+      console.log(`\n[${label}] 최종 배정 요약`);
+      team.forEach(p => {
+        const recent = parsedPlayers[p.username]?.recent ?? '-';
+        console.log(`  - ${p.username} :: class=${p.class}, effMMR=${Math.round(p.effectiveMMR)}, recent=${recent}`);
+      });
+    };
+    summarize(team1Assigned, 'TEAM A');
+    summarize(team2Assigned, 'TEAM B');
+
+    // 4) 상태 반영
+    console.log('상태 업데이트: setTeamA/B, setInitialTeamA/B, 색상맵, 모드 전환');
+    setTeamA(team1Assigned);
+    setTeamB(team2Assigned);
+    setInitialTeamA(team1Assigned);
+    setInitialTeamB(team2Assigned);
+    setTeamAScore(0);
+    setTeamBScore(0);
+    setPreviousTeamMap(
+      Object.fromEntries([
+        ...team1Assigned.map(p => [p.username, 'A']),
+        ...team2Assigned.map(p => [p.username, 'B']),
+      ])
+    );
+    setTeamMode('rematch');
+
+    console.log('⏳ 슬롯 애니메이션 시간 대기 후 완료 처리');
+    setTimeout(() => {
+      setTeamsGenerated(true);
+      playSound('victory.mp3');
+      console.log('🎉 팀 생성 완료! teamsGenerated=true');
+    }, TOTAL_SLOT_TIME);
   };
 
   const runRematchWithSwap = (sorted, parsedPlayers) => {
@@ -457,12 +517,39 @@ export default function TeamPage() {
     let success = false;
 
     while (attempt < maxAttempts && !success) {
+      console.log(`\n🔁 리매치 시도 #${attempt + 1}`);
+      
       const team1Data = [...getRandomSamples(topHalf, 2), ...getRandomSamples(bottomHalf, 2)];
       const team1Usernames = new Set(team1Data.map(p => p.username));
       const team2Data = sorted.filter(p => !team1Usernames.has(p.username));
 
+      console.log('팀 후보 team1Data:', fmtTeam(team1Data));
+      console.log('팀 후보 team2Data:', fmtTeam(team2Data));
+
+      // ✅ 강제 분리 위반 팀은 바로 스킵
+      const p1 = sorted[0], p2 = sorted[1], p7 = sorted[6], p8 = sorted[7];
+      const violates =
+        containsBoth(team1Data, p1, p2) || containsBoth(team2Data, p1, p2) ||
+        containsBoth(team1Data, p7, p8) || containsBoth(team2Data, p7, p8);
+
+      if (violates) {
+        console.log('🚫 하드 스플릿 위반 → 다음 시도');
+        attempt++;
+        continue; // 다음 시도
+      } else {
+        console.log('✅ 하드 스플릿 조건 통과(후보 단계)');
+      }
+
+      console.log('assignPlayerRoles(team1) 실행');
       const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
+      console.log('assignPlayerRoles(team2) 실행');
       const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
+
+      if (!team1Assigned || !team2Assigned) {
+        console.log('❌ 클래스 배정 실패 → 다음 시도');
+        attempt++;
+        continue;
+      }
 
       const avgMMR = (team) => {
         if (!team || team.length === 0) return 0;
@@ -470,39 +557,49 @@ export default function TeamPage() {
         return mmrs.length > 0 ? Math.round(mmrs.reduce((a, b) => a + b, 0) / mmrs.length) : 0;
       };
 
-      console.log(`🔁 시도 ${attempt + 1} - 리매치 배정:`, {
-        team1: team1Assigned?.map(p => ({ username: p.username, mmr: p.effectiveMMR })),
-        team2: team2Assigned?.map(p => ({ username: p.username, mmr: p.effectiveMMR })),
-        team1AvgMMR: avgMMR(team1Assigned || []),
-        team2AvgMMR: avgMMR(team2Assigned || []),
-      });
+      console.log(`TEAM1 배정: ${fmtTeam(team1Assigned)}, avg=${avgMMR(team1Assigned)}`);
+      console.log(`TEAM2 배정: ${fmtTeam(team2Assigned)}, avg=${avgMMR(team2Assigned)}`);
 
-      if (team1Assigned && team2Assigned) {
-        const valid =
-          countMatches(team1Assigned, "A") === 2 &&
-          countMatches(team2Assigned, "B") === 2;
+      // 기존 조건: 각 팀에 기존 색상(A/B) 2명 유지
+      const validKeep =
+        countMatches(team1Assigned, 'A') === 2 &&
+        countMatches(team2Assigned, 'B') === 2;
 
-        if (valid) {
-          setTeamA(team1Assigned);
-          setTeamB(team2Assigned);
-          setInitialTeamA(team1Assigned);
-          setInitialTeamB(team2Assigned);
-          setTeamAScore(0);
-          setTeamBScore(0);
-          setTimeout(() => {
-            setTeamsGenerated(true);
-            playSound("victory.mp3");
-          }, TOTAL_SLOT_TIME);
-          success = true;
-        } else {
-          console.log("⚠️ 조건 불충족 – 팀 구성 유지 안 됨");
-        }
+      // ✅ 강제 분리 조건
+      const hardSplitOk =
+        !containsBoth(team1Assigned, p1, p2) &&
+        !containsBoth(team2Assigned, p1, p2) &&
+        !containsBoth(team1Assigned, p7, p8) &&
+        !containsBoth(team2Assigned, p7, p8);
+
+      console.log(`검증 → keep2:${validKeep ? 'OK' : 'NG'}, hardSplit:${hardSplitOk ? 'OK' : 'NG'}`);
+
+      const valid = validKeep && hardSplitOk;
+
+      if (valid) {
+        console.log('✅ 리매치 유효 조합 확정! 상태 반영');
+        setTeamA(team1Assigned);
+        setTeamB(team2Assigned);
+        setInitialTeamA(team1Assigned);
+        setInitialTeamB(team2Assigned);
+        setTeamAScore(0);
+        setTeamBScore(0);
+        setTimeout(() => {
+          setTeamsGenerated(true);
+          playSound('victory.mp3');
+          console.log('🎉 리매치 완료! teamsGenerated=true');
+        }, TOTAL_SLOT_TIME);
+        success = true;
+      } else {
+        console.log('↩️ 조건 불충족 → 다음 시도');
       }
+
       attempt++;
     }
 
     if (!success) {
-      alert("⚠️ 조건을 만족하는 새로운 조합을 찾지 못했습니다. 다시 시도해 주세요.");
+      console.warn('⚠️ 조건을 만족하는 새로운 조합을 찾지 못했습니다.');
+      alert('⚠️ 조건을 만족하는 새로운 조합을 찾지 못했습니다. 다시 시도해 주세요.');
     }
   };
 
