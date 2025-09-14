@@ -225,9 +225,9 @@ function seedHardSplit(sorted) {
 
 function containsBoth(team, a, b) {
   const u = new Set(team.map(p => p.username));
-  const ok = !(u.has(a.username) && u.has(b.username));
-  console.log(`containsBoth? team=[${team.map(p=>p.username).join(', ')}], pair=${a.username}&${b.username} → ${ok ? '분리 OK' : '같은 팀(위반)'}`);
-  return u.has(a.username) && u.has(b.username);
+  const both = u.has(a.username) && u.has(b.username);
+  console.log(`containsBoth? team=[${team.map(p=>p.username).join(', ')}], pair=${a.username}&${b.username} → ${both ? '둘 다 포함' : '분리'}`);
+  return both;
 }
 
 // ✅ 인덱스 쌍(0-1, 2-3, 4-5, 6-7)로 강제 분할 팀 생성
@@ -267,6 +267,67 @@ function violatesPairSplit(team, pairs, sorted) {
     }
   }
   return false;
+}
+
+function pickRand(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function buildTeamsByProposal(sorted) {
+  dbgTitle('buildTeamsByProposal: Case1({1,2} & {3,4-미러}), Case2(fix: 3~4/7~8 랜덤 1명)');
+
+  const [p1,p2,p3,p4,p5,p6,p7,p8] = sorted;
+
+  // 상위4에서 2명 시드
+  const top4 = [p1,p2,p3,p4];
+  const idx = [0,1,2,3];
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  const seed = [top4[idx[0]], top4[idx[1]]];
+  const has = (x) => seed.some(s => s.username === x.username);
+
+  const CASE1_A = has(p1) && has(p2);   // {1,2}
+  const CASE1_B = has(p3) && has(p4);   // {3,4} → 1&2를 B로 묶는 미러
+
+  let teamA = [], teamB = [];
+
+  if (CASE1_A) {
+    // A = 1,2 + 8 + (5~6 중 1)
+    console.log('🧭 Case1(A): seed={1,2}');
+    teamA = [p1, p2, p8, pickRand([p5, p6])];
+
+  } else if (CASE1_B) {
+    // B = 1,2 + 8 + (5~6 중 1)
+    console.log('🪞 Case1(B-mirror): seed={3,4}');
+    teamB = [p1, p2, p8, pickRand([p5, p6])];
+    teamA = [p1,p2,p3,p4,p5,p6,p7,p8].filter(x => !teamB.some(t => t.username === x.username));
+
+  } else {
+    // ✅ Case2(수정): p1은 A, p2는 B 고정
+    //    MMR3~4 → 쌍분할 랜덤 1명
+    //    MMR6  → A 강제 포함
+    //    MMR7~8 → 쌍분할 랜덤 1명
+    console.log('🧭 Case2(fixed): p1→A, p2→B, (3~4) 1명 랜덤, 6 포함, (7~8) 1명 랜덤');
+
+    const pick34 = pickRand([p3, p4]);   // 🔹 제안서 규칙 반영: 3~4 랜덤 1명
+    const pick78 = pickRand([p7, p8]);   // 🔹 제안서 규칙 반영: 7~8 랜덤 1명
+
+    teamA = [p1, pick34, p6, pick78];    // A는 정확히 4명
+    // B는 나머지
+  }
+
+  const ALL = [p1,p2,p3,p4,p5,p6,p7,p8];
+  if (teamB.length === 0) {
+    teamB = ALL.filter(x => !teamA.some(t => t.username === x.username));
+  } else if (teamA.length === 0) {
+    teamA = ALL.filter(x => !teamB.some(t => t.username === x.username));
+  }
+
+  console.log('teamA:', fmtTeam(teamA));
+  console.log('teamB:', fmtTeam(teamB));
+  return { teamAData: teamA, teamBData: teamB };
 }
 
 // ================== END DEBUG UTILS (ADD) ====================
@@ -455,24 +516,10 @@ export default function TeamPage() {
 
   // ✅ 초기 팀 생성: 1&2, 7&8 강제 분리 + 풍부한 로그
   const runInitialTeamGeneration = (sorted, parsedPlayers) => {
-    dbgTitle('🚀 초기 팀 생성 (쌍 분할 1–2 / 3–4 / 5–6 / 7–8)');
-    
-    // 🔁 새 로직: 각 쌍에서 한 명씩 A/B로 분할
-    const { teamAData, teamBData, pairs } = buildTeamsByPairSplit(sorted);
+    dbgTitle('🚀 초기 팀 생성 (제안서 Step1/Step2)');
 
-    // 🔒 위반 검사(같은 쌍 두 명이 같은 팀에 오면 위반)
-    const violates =
-      violatesPairSplit(teamAData, pairs, sorted) ||
-      violatesPairSplit(teamBData, pairs, sorted);
+    const { teamAData, teamBData } = buildTeamsByProposal(sorted);
 
-    if (violates) {
-      console.warn('⚠️ 쌍 분할 위반 감지 → 초기화 중단');
-      alert('팀 구성 중 오류가 발생했습니다. 다시 시도해 주세요.');
-      return;
-    }
-    console.log('✅ 쌍 분할 조건 통과');
-
-    // 🎭 클래스 배정
     console.log('assignPlayerRoles 시작 (teamA)');
     const team1Assigned = assignPlayerRoles(teamAData, parsedPlayers);
     console.log('assignPlayerRoles 시작 (teamB)');
@@ -484,7 +531,6 @@ export default function TeamPage() {
       return;
     }
 
-    // 요약·상태 반영 동일
     const summarize = (team, label) => {
       console.log(`\n[${label}] 최종 배정 요약`);
       team.forEach(p => {
@@ -513,7 +559,6 @@ export default function TeamPage() {
       console.log('🎉 팀 생성 완료! teamsGenerated=true');
     }, TOTAL_SLOT_TIME);
   };
-
 
   const runRematchWithSwap = (sorted, parsedPlayers) => {
     console.log("🔁 리매치 모드 시작 – 기존 팀 상태:", previousTeamMap);
