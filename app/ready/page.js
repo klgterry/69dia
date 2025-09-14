@@ -229,6 +229,46 @@ function containsBoth(team, a, b) {
   console.log(`containsBoth? team=[${team.map(p=>p.username).join(', ')}], pair=${a.username}&${b.username} → ${ok ? '분리 OK' : '같은 팀(위반)'}`);
   return u.has(a.username) && u.has(b.username);
 }
+
+// ✅ 인덱스 쌍(0-1, 2-3, 4-5, 6-7)로 강제 분할 팀 생성
+function buildTeamsByPairSplit(sorted) {
+  dbgTitle('buildTeamsByPairSplit: 쌍 분할로 팀 생성');
+  const pairs = [[0,1],[2,3],[4,5],[6,7]];
+  const teamA = [];
+  const teamB = [];
+
+  for (const [i, j] of pairs) {
+    const a = sorted[i];
+    const b = sorted[j];
+    const flip = Math.random() < 0.5; // 한 명은 A, 한 명은 B
+    if (flip) {
+      teamA.push(a); teamB.push(b);
+      console.log(`pair [${i+1}&${j+1}] → A:${a.username}, B:${b.username}`);
+    } else {
+      teamA.push(b); teamB.push(a);
+      console.log(`pair [${i+1}&${j+1}] → A:${b.username}, B:${a.username}`);
+    }
+  }
+
+  console.log('teamA(쌍 분할):', fmtTeam(teamA));
+  console.log('teamB(쌍 분할):', fmtTeam(teamB));
+  return { teamAData: teamA, teamBData: teamB, pairs };
+}
+
+// ✅ 팀이 쌍 분할 규칙을 어겼는지 검사 (같은 팀에 같은 쌍 2명 X)
+function violatesPairSplit(team, pairs, sorted) {
+  const names = new Set(team.map(p => p.username));
+  for (const [i, j] of pairs) {
+    const u = sorted[i], v = sorted[j];
+    const both = names.has(u.username) && names.has(v.username);
+    if (both) {
+      console.log(`🚫 pair [${i+1}&${j+1}] 한 팀에 모임 → 위반`);
+      return true;
+    }
+  }
+  return false;
+}
+
 // ================== END DEBUG UTILS (ADD) ====================
 
 export default function TeamPage() {
@@ -415,51 +455,36 @@ export default function TeamPage() {
 
   // ✅ 초기 팀 생성: 1&2, 7&8 강제 분리 + 풍부한 로그
   const runInitialTeamGeneration = (sorted, parsedPlayers) => {
-    dbgTitle('🚀 초기 팀 생성 (Hard Split + Debug Logs)');
+    dbgTitle('🚀 초기 팀 생성 (쌍 분할 1–2 / 3–4 / 5–6 / 7–8)');
+    
+    // 🔁 새 로직: 각 쌍에서 한 명씩 A/B로 분할
+    const { teamAData, teamBData, pairs } = buildTeamsByPairSplit(sorted);
 
-    // 1) 강제 분리 시드 구성
-    const { seedA, seedB } = seedHardSplit(sorted); // [1위 + (7|8)], [2위 + (8|7)]
-
-    // 2) 중간권(3~6위) 섞어서 2:2 분배
-    const mid = [...sorted.slice(2, 6)];
-    console.log('중간권 원본(3~6):', fmtList(mid));
-    for (let i = mid.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [mid[i], mid[j]] = [mid[j], mid[i]];
-    }
-    console.log('중간권 셔플 결과:', fmtList(mid));
-
-    const team1Data = [...seedA, mid[0], mid[2]];
-    const team2Data = [...seedB, mid[1], mid[3]];
-    console.log('초기 분배 team1Data:', fmtTeam(team1Data));
-    console.log('초기 분배 team2Data:', fmtTeam(team2Data));
-
-    // 방어적 체크
-    const p1 = sorted[0], p2 = sorted[1], p7 = sorted[6], p8 = sorted[7];
+    // 🔒 위반 검사(같은 쌍 두 명이 같은 팀에 오면 위반)
     const violates =
-      containsBoth(team1Data, p1, p2) || containsBoth(team2Data, p1, p2) ||
-      containsBoth(team1Data, p7, p8) || containsBoth(team2Data, p7, p8);
+      violatesPairSplit(teamAData, pairs, sorted) ||
+      violatesPairSplit(teamBData, pairs, sorted);
 
     if (violates) {
-      console.warn('⚠️ 강제 분리 위반 감지 → 초기화 중단');
+      console.warn('⚠️ 쌍 분할 위반 감지 → 초기화 중단');
       alert('팀 구성 중 오류가 발생했습니다. 다시 시도해 주세요.');
       return;
     }
-    console.log('✅ 강제 분리 조건 통과');
+    console.log('✅ 쌍 분할 조건 통과');
 
-    // 3) 클래스 배정
-    console.log('assignPlayerRoles 시작 (team1)');
-    const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
-    console.log('assignPlayerRoles 시작 (team2)');
-    const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
+    // 🎭 클래스 배정
+    console.log('assignPlayerRoles 시작 (teamA)');
+    const team1Assigned = assignPlayerRoles(teamAData, parsedPlayers);
+    console.log('assignPlayerRoles 시작 (teamB)');
+    const team2Assigned = assignPlayerRoles(teamBData, parsedPlayers);
 
     if (!team1Assigned || !team2Assigned) {
-      console.log('❌ 클래스 배정 실패. team1Assigned:', team1Assigned, 'team2Assigned:', team2Assigned);
+      console.log('❌ 클래스 배정 실패. teamA:', team1Assigned, 'teamB:', team2Assigned);
       alert('클래스 배정에 실패했습니다. 다시 시도해 주세요.');
       return;
     }
 
-    // 배정 결과 요약
+    // 요약·상태 반영 동일
     const summarize = (team, label) => {
       console.log(`\n[${label}] 최종 배정 요약`);
       team.forEach(p => {
@@ -470,23 +495,18 @@ export default function TeamPage() {
     summarize(team1Assigned, 'TEAM A');
     summarize(team2Assigned, 'TEAM B');
 
-    // 4) 상태 반영
-    console.log('상태 업데이트: setTeamA/B, setInitialTeamA/B, 색상맵, 모드 전환');
     setTeamA(team1Assigned);
     setTeamB(team2Assigned);
     setInitialTeamA(team1Assigned);
     setInitialTeamB(team2Assigned);
     setTeamAScore(0);
     setTeamBScore(0);
-    setPreviousTeamMap(
-      Object.fromEntries([
-        ...team1Assigned.map(p => [p.username, 'A']),
-        ...team2Assigned.map(p => [p.username, 'B']),
-      ])
-    );
+    setPreviousTeamMap(Object.fromEntries([
+      ...team1Assigned.map(p => [p.username, 'A']),
+      ...team2Assigned.map(p => [p.username, 'B']),
+    ]));
     setTeamMode('rematch');
 
-    console.log('⏳ 슬롯 애니메이션 시간 대기 후 완료 처리');
     setTimeout(() => {
       setTeamsGenerated(true);
       playSound('victory.mp3');
@@ -494,56 +514,35 @@ export default function TeamPage() {
     }, TOTAL_SLOT_TIME);
   };
 
+
   const runRematchWithSwap = (sorted, parsedPlayers) => {
     console.log("🔁 리매치 모드 시작 – 기존 팀 상태:", previousTeamMap);
-    const topHalf = sorted.slice(0, 4);
-    const bottomHalf = sorted.slice(4, 8);
-
-    const getRandomSamples = (arr, n) => {
-      const copy = [...arr];
-      const result = [];
-      for (let i = 0; i < n; i++) {
-        const idx = Math.floor(Math.random() * copy.length);
-        result.push(copy.splice(idx, 1)[0]);
-      }
-      return result;
-    };
-
-    const countMatches = (team, label) =>
-      team.filter(p => previousTeamMap[p.username] === label).length;
 
     let attempt = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 30; // 약간 여유
     let success = false;
 
     while (attempt < maxAttempts && !success) {
       console.log(`\n🔁 리매치 시도 #${attempt + 1}`);
-      
-      const team1Data = [...getRandomSamples(topHalf, 2), ...getRandomSamples(bottomHalf, 2)];
-      const team1Usernames = new Set(team1Data.map(p => p.username));
-      const team2Data = sorted.filter(p => !team1Usernames.has(p.username));
 
-      console.log('팀 후보 team1Data:', fmtTeam(team1Data));
-      console.log('팀 후보 team2Data:', fmtTeam(team2Data));
+      // 🔁 쌍 분할로 후보 팀 만들기
+      const { teamAData, teamBData, pairs } = buildTeamsByPairSplit(sorted);
 
-      // ✅ 강제 분리 위반 팀은 바로 스킵
-      const p1 = sorted[0], p2 = sorted[1], p7 = sorted[6], p8 = sorted[7];
+      // 🔒 쌍 분할 위반 방지(이론상 없지만 방어)
       const violates =
-        containsBoth(team1Data, p1, p2) || containsBoth(team2Data, p1, p2) ||
-        containsBoth(team1Data, p7, p8) || containsBoth(team2Data, p7, p8);
-
+        violatesPairSplit(teamAData, pairs, sorted) ||
+        violatesPairSplit(teamBData, pairs, sorted);
       if (violates) {
-        console.log('🚫 하드 스플릿 위반 → 다음 시도');
+        console.log('🚫 쌍 분할 위반 → 다음 시도');
         attempt++;
-        continue; // 다음 시도
-      } else {
-        console.log('✅ 하드 스플릿 조건 통과(후보 단계)');
+        continue;
       }
 
-      console.log('assignPlayerRoles(team1) 실행');
-      const team1Assigned = assignPlayerRoles(team1Data, parsedPlayers);
-      console.log('assignPlayerRoles(team2) 실행');
-      const team2Assigned = assignPlayerRoles(team2Data, parsedPlayers);
+      // 🎭 클래스 배정
+      console.log('assignPlayerRoles(teamA) 실행');
+      const team1Assigned = assignPlayerRoles(teamAData, parsedPlayers);
+      console.log('assignPlayerRoles(teamB) 실행');
+      const team2Assigned = assignPlayerRoles(teamBData, parsedPlayers);
 
       if (!team1Assigned || !team2Assigned) {
         console.log('❌ 클래스 배정 실패 → 다음 시도');
@@ -551,32 +550,20 @@ export default function TeamPage() {
         continue;
       }
 
-      const avgMMR = (team) => {
-        if (!team || team.length === 0) return 0;
-        const mmrs = team.map(p => p.effectiveMMR).filter(m => typeof m === "number" && !isNaN(m));
-        return mmrs.length > 0 ? Math.round(mmrs.reduce((a, b) => a + b, 0) / mmrs.length) : 0;
-      };
+      // 평균 MMR 로그(선택)
+      const avg = (t) => Math.round(t.reduce((s, p) => s + (p.effectiveMMR||0), 0) / t.length);
+      console.log(`TEAM A: ${fmtTeam(team1Assigned)}, avg=${avg(team1Assigned)}`);
+      console.log(`TEAM B: ${fmtTeam(team2Assigned)}, avg=${avg(team2Assigned)}`);
 
-      console.log(`TEAM1 배정: ${fmtTeam(team1Assigned)}, avg=${avgMMR(team1Assigned)}`);
-      console.log(`TEAM2 배정: ${fmtTeam(team2Assigned)}, avg=${avgMMR(team2Assigned)}`);
-
-      // 기존 조건: 각 팀에 기존 색상(A/B) 2명 유지
-      const validKeep =
+      // 🎨 색 유지 규칙: 이전 A 2명, 이전 B 2명 유지
+      const countMatches = (team, label) => team.filter(p => previousTeamMap[p.username] === label).length;
+      const keepRule =
         countMatches(team1Assigned, 'A') === 2 &&
         countMatches(team2Assigned, 'B') === 2;
 
-      // ✅ 강제 분리 조건
-      const hardSplitOk =
-        !containsBoth(team1Assigned, p1, p2) &&
-        !containsBoth(team2Assigned, p1, p2) &&
-        !containsBoth(team1Assigned, p7, p8) &&
-        !containsBoth(team2Assigned, p7, p8);
+      console.log(`검증 → keep2:${keepRule ? 'OK' : 'NG'}`);
 
-      console.log(`검증 → keep2:${validKeep ? 'OK' : 'NG'}, hardSplit:${hardSplitOk ? 'OK' : 'NG'}`);
-
-      const valid = validKeep && hardSplitOk;
-
-      if (valid) {
+      if (keepRule) {
         console.log('✅ 리매치 유효 조합 확정! 상태 반영');
         setTeamA(team1Assigned);
         setTeamB(team2Assigned);
@@ -602,6 +589,7 @@ export default function TeamPage() {
       alert('⚠️ 조건을 만족하는 새로운 조합을 찾지 못했습니다. 다시 시도해 주세요.');
     }
   };
+
 
   function assignPlayerRoles(team, parsedPlayers) {
     const positions = ["드", "어", "넥", "슴"];
