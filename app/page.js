@@ -108,6 +108,7 @@ export default function HomePage() {
 
       // 병합: prevRank
       const merged = seasonUsers.map(user => {
+        const rating = user.RATING_5PT === "-" ? null : Number(user.RATING_5PT);
         const prev = prevRankList.find(p => p.SEASON === user.SEASON && p.PLAYER === user.PLAYER);
         return {
           username: user.PLAYER,
@@ -118,6 +119,7 @@ export default function HomePage() {
           summonerWins: Number(user.S_WINS || 0),
           rank: Number(user.TOTAL_RANK),
           prevRank: prev ? Number(prev.PrevRank) : Number(user.TOTAL_RANK),
+          rating,
         };
       });
 
@@ -236,6 +238,7 @@ export default function HomePage() {
               <th className="px-5 py-3 border-r border-gray-600 text-center whitespace-nowrap">변동</th>
               <th className="px-5 py-3 border-r border-gray-600 text-center whitespace-nowrap">아이디</th>
               <th className="px-5 py-3 border-r border-gray-600 text-center whitespace-nowrap">총 승수</th>
+              <th className="px-5 py-3 border-r border-gray-600 text-center whitespace-nowrap">평점</th>
               <th className="px-5 py-3 text-center whitespace-nowrap">클래스별 승수</th>
             </tr>
           </thead>
@@ -243,14 +246,14 @@ export default function HomePage() {
             {isLoading ? (
               // ✅ 데이터 로딩 중
               <tr>
-                <td colSpan="5" className="text-center py-6 text-gray-400">
+                <td colSpan="6" className="text-center py-6 text-gray-400">
                   🚀 랭킹 데이터를 불러오는 중입니다...
                 </td>
               </tr>
             ) : leaderboard.length === 0 ? (
               // ✅ 필터링 결과 없음
               <tr>
-                <td colSpan="5" className="text-center py-6 text-gray-400">
+                <td colSpan="6" className="text-center py-6 text-gray-400">
                   😢 해당 시즌에는 조건을 만족하는 랭킹 유저가 없습니다.
                 </td>
               </tr>
@@ -265,7 +268,7 @@ export default function HomePage() {
                 >
                   <td className="px-3 py-3 border-r border-gray-600 whitespace-nowrap text-lg font-semibold">
                     {player.rank <= 3 ? (
-                      <div className="relative w-12 h-12 mx-auto">
+                      <div className="relative w-10 h-10 mx-auto">
                         <Image
                           src={`/icons/rank/${player.rank}.png`}
                           alt={`Rank ${player.rank}`}
@@ -278,7 +281,7 @@ export default function HomePage() {
                     )}
                   </td>
                   <td className="px-6 py-3 border-r border-gray-600 whitespace-nowrap">
-                    <div className="relative w-6 h-6 mx-auto">
+                    <div className="relative w-4 h-4 mx-auto">
                       <Image
                         src={getRankChangeIcon(
                           player.rank,
@@ -295,7 +298,7 @@ export default function HomePage() {
                     <div className="flex md:flex-row items-center space-x-3">
                       <UserProfileImage username={player.username} />
                       <span
-                        className="text-lg font-medium cursor-pointer hover:underline"
+                        className="text-sm font-medium cursor-pointer hover:underline"
                         onClick={() => {
                           const popupUrl = `/user-popup?name=${encodeURIComponent(player.username)}&season=${encodeURIComponent(selectedSeason?.TITLE || "")}`;
                           window.open(popupUrl, "userPopup", "width=900,height=800,left=100,top=100,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no");
@@ -305,31 +308,40 @@ export default function HomePage() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-3 text-lg font-semibold border-r border-gray-600 whitespace-nowrap">
+                  <td className="px-6 py-3 text-sm font-semibold border-r border-gray-600 whitespace-nowrap">
                     {player.wins}
                   </td>
+                  <td className="px-4 py-2 border-r border-gray-600 whitespace-nowrap text-sm font-semibold">
+                    {player.rating !== null ? (
+                      <>
+                        ⭐ {player.rating.toFixed(1)}
+                      </>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td className="px-4 py-2 border-gray-600 whitespace-nowrap border-l">
-                    <div className="flex flex-wrap justify-start space-x-2 md:space-x-4">
+                    <div className="flex flex-wrap justify-start space-x-1 md:space-x-3">
                       {player.druidWins > 0 && (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
                           <ClassIcon src="/icons/classes/druid.jpg" alt="Druid" />
                           <span className="text-1xl">{player.druidWins}</span>
                         </div>
                       )}
                       {player.oracleWins > 0 && (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
                           <ClassIcon src="/icons/classes/oracle.jpg" alt="Oracle" />
                           <span className="text-1xl">{player.oracleWins}</span>
                         </div>
                       )}
                       {player.necroWins > 0 && (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
                           <ClassIcon src="/icons/classes/necro.jpg" alt="Necro" />
                           <span className="text-1xl">{player.necroWins}</span>
                         </div>
                       )}
                       {player.summonerWins > 0 && (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
                           <ClassIcon src="/icons/classes/summoner.jpg" alt="Summoner" />
                           <span className="text-1xl">{player.summonerWins}</span>
                         </div>
@@ -351,7 +363,7 @@ function UserProfileImage({ username }) {
   const [imgSrc, setImgSrc] = useState(`/icons/users/웹_${username}.jpg`);
 
   return (
-    <div className="relative w-10 h-10 overflow-hidden">
+    <div className="relative w-8 h-8 overflow-hidden">
       <Image 
         src={imgSrc} 
         alt={username} 
@@ -384,4 +396,5 @@ function getRankChangeIcon(current, prev, isCurrentSeason = true) {
   if (currentRank > previousRank) return "/icons/rank/down.png";
   return "/icons/rank/same.png";
 }
+
 

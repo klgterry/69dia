@@ -78,6 +78,7 @@ export default function UserPage() {
   const [allGames, setAllGames] = useState([]);
   const router = useRouter();
   const [selectedUser, setSelectedUser] = useState(null);
+  const [playerScoresMap, setPlayerScoresMap] = useState(new Map());
 
   useEffect(() => {
     setIsUserListLoading(true);
@@ -147,6 +148,16 @@ export default function UserPage() {
         });
     }
   }, [selectedSeason, selectedUser]);
+
+  useEffect(() => {
+    fetch("/api/gasApi?action=getPlayerScores")
+      .then(r => r.json())
+      .then(({ players }) => {
+        const m = new Map(players.map(p => [p.PLAYER.trim(), p]));
+        setPlayerScoresMap(m);
+      })
+      .catch(err => console.error("❌ getPlayerScores 실패:", err));
+  }, []);
   
   useEffect(() => {
     fetchUserSummary().then(setUserSummaryData);
@@ -392,7 +403,7 @@ export default function UserPage() {
           )}
 
           {/* 🎖 시즌 BEST 배너 - 항상 표시 */}
-          <div className="relative w-[200px] h-[300px]">
+          <div className="relative w-[150px] h-[200px]">
             <Image
               src="/icons/etc/시즌베스트.png" // 또는 "/시즌베스트.png"
               alt="All Season Best"
@@ -430,6 +441,8 @@ export default function UserPage() {
                 isLoading={isSeasonStatsLoading}
                 season={selectedSeason?.TITLE || "ALL"}
                 seasonList={seasonList}
+                playerScores={playerScoresMap.get(selectedUser) || null} // ✅ 추가
+                summaryData={userSummaryData}  // ✅ 추가
               />
             )}
           </div>
@@ -505,104 +518,108 @@ export default function UserPage() {
   );
 }
 
-function UserSeasonStats({ username, seasonStats, isLoading, season, seasonList }) {
+function UserSeasonStats({
+  username, seasonStats, isLoading, season, seasonList,
+  playerScores, summaryData,
+}) {
   if (isLoading || seasonStats === null) {
     return <div className="ml-12 text-lg text-gray-400">⏳ 시즌 데이터를 불러오는 중...</div>;
   }
 
-  const isAllSeason = season === "ALL";
+  const fmt10 = (v) => (v == null || v === "-" || isNaN(Number(v)) ? "-" : `${Number(v).toFixed(1)}/10`);
+  const fmt5  = (v) => (v == null || isNaN(Number(v)) ? "-" : `${Number(v).toFixed(1)}/5`);
 
-  // 시즌 종료 여부 확인
+  // 시즌 진행 여부
   const seasonMeta = seasonList?.find((s) => s.TITLE === season);
-  const isSeasonOngoing = seasonMeta?.END_TIME
-    ? new Date(seasonMeta.END_TIME) > new Date()
-    : true;
+  const isSeasonOngoing = seasonMeta?.END_TIME ? new Date(seasonMeta.END_TIME) > new Date() : true;
 
+  // 현재 화면에 표시 중인 사용자(시즌 데이터)
   const user = seasonStats.find((u) =>
-    isAllSeason ? u.username === username : u.PLAYER === username
+    (season === "ALL" ? u.username === username : u.PLAYER === username)
   );
-
   if (!user) {
-    return (
-      <div className="ml-12 flex flex-col justify-center text-lg text-gray-400">
-        ❌ 해당 시즌 기록이 없습니다.
-      </div>
-    );
+    return <div className="ml-12 flex flex-col justify-center text-lg text-gray-400">❌ 해당 시즌 기록이 없습니다.</div>;
   }
 
   const {
-    TOTAL_WINS: wins,
-    TOTAL_RANK: rank,
-    TOTAL_PREV_RANK: prevRank,
-    D_WINS: druidWins,
-    D_RANK: druidRank,
-    D_PREV_RANK: druidPrev,
-    A_WINS: oracleWins,
-    A_RANK: oracleRank,
-    A_PREV_RANK: oraclePrev,
-    N_WINS: necroWins,
-    N_RANK: necroRank,
-    N_PREV_RANK: necroPrev,
-    S_WINS: summonerWins,
-    S_RANK: summonerRank,
-    S_PREV_RANK: summonerPrev,
+    TOTAL_WINS: wins, TOTAL_RANK: rank, TOTAL_PREV_RANK: prevRank,
+    D_WINS: dWins, D_RANK: dRank, D_PREV_RANK: dPrev,
+    A_WINS: aWins, A_RANK: aRank, A_PREV_RANK: aPrev,
+    N_WINS: nWins, N_RANK: nRank, N_PREV_RANK: nPrev,
+    S_WINS: sWins, S_RANK: sRank, S_PREV_RANK: sPrev,
   } = user;
 
   const classStats = [
-    {
-      key: "druid",
-      wins: druidWins,
-      rank: druidRank,
-      prev: druidPrev,
-      icon: "/icons/classes/druid.jpg",
-    },
-    {
-      key: "oracle",
-      wins: oracleWins,
-      rank: oracleRank,
-      prev: oraclePrev,
-      icon: "/icons/classes/oracle.jpg",
-    },
-    {
-      key: "necro",
-      wins: necroWins,
-      rank: necroRank,
-      prev: necroPrev,
-      icon: "/icons/classes/necro.jpg",
-    },
-    {
-      key: "summoner",
-      wins: summonerWins,
-      rank: summonerRank,
-      prev: summonerPrev,
-      icon: "/icons/classes/summoner.jpg",
-    },
+    { key: "druid",    wins: dWins, rank: dRank, prev: dPrev, icon: "/icons/classes/druid.jpg",    score: playerScores?.D_SCORE_10 },
+    { key: "oracle",   wins: aWins, rank: aRank, prev: aPrev, icon: "/icons/classes/oracle.jpg",   score: playerScores?.A_SCORE_10 },
+    { key: "necro",    wins: nWins, rank: nRank, prev: nPrev, icon: "/icons/classes/necro.jpg",    score: playerScores?.N_SCORE_10 },
+    { key: "summoner", wins: sWins, rank: sRank, prev: sPrev, icon: "/icons/classes/summoner.jpg", score: playerScores?.S_SCORE_10 },
   ];
 
   function getRankChangeIcon(current, prev) {
-    const cur = Number(current);
-    const prv = Number(prev);
+    const cur = Number(current), prv = Number(prev);
     if (!prv || isNaN(prv)) return "/icons/rank/same.png";
     if (cur < prv) return "/icons/rank/up.png";
     if (cur > prv) return "/icons/rank/down.png";
     return "/icons/rank/same.png";
   }
 
+  // ✅ ‘클래스 표의 ALL 행’ SCORE용 5점제 평점 구하기
+  // 우선 현재 선택 시즌(season)과 사용자(username)에 해당하는 UserSummary 행을 찾고,
+  // 없다면 시즌이 'ALL'일 때는 전 시즌 합산으로 계산(ROUND_WIN/ROUND_LOSE 기준).
+  function getAllRowRating5() {
+    const name = (username || "").trim();
+
+    // 1) 선택 시즌의 RATING_5PT 우선 사용
+    const row = summaryData?.find(
+      r => (r.PLAYER?.trim() === name) && (r.SEASON === season)
+    );
+    if (row && row.RATING_5PT != null && !isNaN(Number(row.RATING_5PT))) {
+      return Number(row.RATING_5PT);
+    }
+
+    // 2) 선택 시즌이 'ALL'인 경우: ALL 행이 있으면 사용
+    if (season === "ALL") {
+      const allRow = summaryData?.find(
+        r => (r.PLAYER?.trim() === name) && (r.SEASON === "ALL")
+      );
+      if (allRow && allRow.RATING_5PT != null && !isNaN(Number(allRow.RATING_5PT))) {
+        return Number(allRow.RATING_5PT);
+      }
+
+      // 3) 없으면 합산 계산
+      const rows = summaryData?.filter(r => r.PLAYER?.trim() === name && r.SEASON !== "ALL") || [];
+      const totalWin  = rows.reduce((s, r) => s + (Number(r.ROUND_WIN)  || 0), 0);
+      const totalLose = rows.reduce((s, r) => s + (Number(r.ROUND_LOSE) || 0), 0);
+      const totalSets = totalWin + totalLose;
+      if (totalSets <= 5) return null;
+
+      const roundRatePct = (totalWin / totalSets) * 100; // 라운드 승률(%)
+      const rating = Math.min(5.0, Math.round((roundRatePct * 0.092) * 10) / 10); // 소수1자리, 상한 5.0
+      return rating;
+    }
+
+    // 4) 선택 시즌이고 RATING_5PT가 없으면 표시 안 함
+    return null;
+  }
+
+  const allRowRating5 = getAllRowRating5();
+
   return (
-    <div className="ml-12 flex flex-col justify-center text-lg">
+    <div className="ml-10 flex flex-col justify-center text-lg">
       <h3 className="text-3xl font-bold text-yellow-300 text-center">{season}</h3>
 
-
-      {/* 헤더 */}
-      <div className="grid grid-cols-[40px_60px_60px_30px] gap-x-4 mb-2">
+      {/* 헤더: 빈칸 / WIN / RANK / 변동 / SCORE */}
+      <div className="grid grid-cols-[40px_50px_60px_30px_60px] gap-x-4 mb-2">
         <div></div>
-        <div className="text-white font-bold text-lg pl-5">WIN</div>
+        <div className="text-white font-bold text-lg pl-3">WIN</div>
         <div className="text-white font-bold text-lg pl-3">RANK</div>
         <div></div>
+        <div className="text-white font-bold text-lg pr-8">RATING</div>
       </div>
 
-      {/* 클래스별 데이터 */}
-      <div className="grid grid-cols-[40px_60px_60px_30px] gap-x-4 gap-y-2 text-1xl items-center">
+      {/* 본문: 클래스 줄(10점제) */}
+      <div className="grid grid-cols-[40px_50px_60px_30px_60px] gap-x-4 gap-y-2 text-1xl items-center">
         {classStats.map(
           (cls) =>
             cls.wins > 0 && (
@@ -610,44 +627,41 @@ function UserSeasonStats({ username, seasonStats, isLoading, season, seasonList 
                 <Image src={cls.icon} alt={cls.key} width={40} height={40} />
                 <div className="text-right">{cls.wins}승</div>
                 <div className="text-right">{cls.rank}위</div>
-                {isAllSeason || !isSeasonOngoing ? (
+                {season === "ALL" || !isSeasonOngoing ? (
                   <div className="w-[24px] h-[24px]" />
                 ) : (
                   <div className="relative w-[24px] h-[24px]">
-                    <Image
-                      src={getRankChangeIcon(cls.rank, cls.prev)}
-                      alt="변동"
-                      fill
-                      className="object-contain"
-                    />
+                    <Image src={getRankChangeIcon(cls.rank, cls.prev)} alt="변동" fill className="object-contain" />
                   </div>
                 )}
+                <div className="text-right">{fmt10(cls.score)}</div>
               </div>
             )
         )}
 
-        {/* ALL 줄 출력 */}
+        {/* ✅ 맨 아래 ‘ALL’ 행: SCORE 칸은 5점제 평점 */}
         <div className="contents font-bold text-white mt-4">
           <div className="text-lg">ALL</div>
-          <div className="text-right text-2xl text-red-500 whitespace-nowrap">{wins}승</div>
-          <div className="text-right text-2xl text-red-500">{rank}위</div>
-          {!isAllSeason && isSeasonOngoing ? (
+          <div className="text-right text-2xl text-red-500 whitespace-nowrap">{user.TOTAL_WINS}승</div>
+          <div className="text-right text-2xl text-red-500">{user.TOTAL_RANK}위</div>
+          {!(season === "ALL") && isSeasonOngoing ? (
             <div className="relative w-[24px] h-[24px]">
-              <Image
-                src={getRankChangeIcon(rank, prevRank)}
-                alt="전체 변동"
-                fill
-                className="object-contain"
-              />
+              <Image src={getRankChangeIcon(user.TOTAL_RANK, user.TOTAL_PREV_RANK)} alt="전체 변동" fill className="object-contain" />
             </div>
           ) : (
             <div className="w-[24px] h-[24px]" />
           )}
+          <div className="text-right text-1xl pr-30">
+            ⭐{fmt5(allRowRating5)} {/* ← ★ 여기만 5점제 */}
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+
+
 
 function UserDuoStats({ duoStats, selectedUser, seasonTitle }) {
   if (!duoStats || duoStats.length === 0) return null;
@@ -1096,5 +1110,11 @@ function getTopSeasonsByWins(summaryData, selectedUser) {
     .map(row => `${row.TOTAL_WINS}승, ${row.TOTAL_RANK}위 (${row.SEASON})`);
 }
 
+const fmtScore = (v) => {
+  if (v === "-" || v === "" || v == null) return "-";
+  const n = Number(v);
+  if (!isFinite(n)) return "-";
+  return `${(Math.round(n * 10) / 10).toFixed(1)}/10`; // 8.1/10 형식
+};
 
 
