@@ -237,8 +237,8 @@ export default function HomePage() {
               <th className="px-5 py-3 border-r border-gray-600 text-center whitespace-nowrap">순위</th>
               <th className="px-5 py-3 border-r border-gray-600 text-center whitespace-nowrap">변동</th>
               <th className="px-5 py-3 border-r border-gray-600 text-center whitespace-nowrap">아이디</th>
-              <th className="px-5 py-3 border-r border-gray-600 text-center whitespace-nowrap">총 승수</th>
-              <th className="px-5 py-3 border-r border-gray-600 text-center whitespace-nowrap">평점</th>
+              <th className="px-3 py-3 border-r border-gray-600 text-center whitespace-nowrap">승수</th>
+              <th className="px-6 py-3 border-r border-gray-600 text-center whitespace-nowrap">평점</th>
               <th className="px-5 py-3 text-center whitespace-nowrap">클래스별 승수</th>
             </tr>
           </thead>
@@ -312,9 +312,20 @@ export default function HomePage() {
                     {player.wins}
                   </td>
                   <td className="px-4 py-2 border-r border-gray-600 whitespace-nowrap text-sm font-semibold">
-                    {player.rating !== null ? (
+                     {player.rating !== null ? (
                       <>
-                        ⭐ {player.rating.toFixed(1)}
+                        <img
+                          src={
+                            player.rating === 5.0
+                              ? "/images/무지개별.png"
+                              : player.rating >= 4.0
+                              ? "/images/금별.png"
+                              : "/images/은별.png"
+                          }
+                          alt="rating-star"
+                          className="inline w-5 h-5 mr-2 -mt-0.5" // 크기/간격 조정
+                        />
+                        {player.rating.toFixed(1)}
                       </>
                     ) : (
                       "-"

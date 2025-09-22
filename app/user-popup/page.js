@@ -83,19 +83,34 @@ export default function UserPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const username = params.get("name");
-    const season = params.get("season");
-  
+    const seasonParam = params.get("season");
+
     setSelectedUser(username);
-  
-    fetchSeasonList().then((data) => {
-      const allOption = { TITLE: "ALL", START_TIME: null, END_TIME: null };
-      const fullList = [allOption, ...data];
-      setSeasonList(fullList);
-  
-      const defaultSeason = fullList.find((s) => s.TITLE === season) || allOption;
-      setSelectedSeason(defaultSeason);
-    });
+
+    // 병렬 실행
+    (async () => {
+      try {
+        const data = await fetchSeasonList();
+        const allOption = { TITLE: "ALL", START_TIME: null, END_TIME: null };
+        const fullList = [allOption, ...data];
+        setSeasonList(fullList);
+
+        // URL season이 있으면 우선 반영
+        let defaultSeason = allOption;
+        if (seasonParam) {
+          const found = fullList.find((s) => s.TITLE === seasonParam);
+          if (found) defaultSeason = found;
+        }
+
+        setSelectedSeason(defaultSeason);
+      } catch (err) {
+        console.error("❌ 시즌 목록 불러오기 실패:", err);
+        setSeasonList([{ TITLE: "ALL" }]); // fallback
+        setSelectedSeason({ TITLE: "ALL" });
+      }
+    })();
   }, []);
+
 
   useEffect(() => {
     setIsUserListLoading(true);

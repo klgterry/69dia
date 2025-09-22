@@ -660,9 +660,6 @@ function UserSeasonStats({
   );
 }
 
-
-
-
 function UserDuoStats({ duoStats, selectedUser, seasonTitle }) {
   if (!duoStats || duoStats.length === 0) return null;
 
@@ -988,7 +985,6 @@ function UserAwards({ seasonStats, selectedUser, seasonList }) {
   );
 }
 
-
 function getMaxWinStreakWithSeason(games) {
   const streakBySeason = {};
 
@@ -1109,12 +1105,3 @@ function getTopSeasonsByWins(summaryData, selectedUser) {
     .slice(0, 3) // 상위 3개
     .map(row => `${row.TOTAL_WINS}승, ${row.TOTAL_RANK}위 (${row.SEASON})`);
 }
-
-const fmtScore = (v) => {
-  if (v === "-" || v === "" || v == null) return "-";
-  const n = Number(v);
-  if (!isFinite(n)) return "-";
-  return `${(Math.round(n * 10) / 10).toFixed(1)}/10`; // 8.1/10 형식
-};
-
-
