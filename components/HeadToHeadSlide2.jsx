@@ -16,6 +16,19 @@ const dgroup = (label, fn) => {
   try { fn?.(); } finally { console.groupEnd(); }
 };
 
+/* -------------------- 시즌: 하드코딩 -------------------- */
+const staticSeasonList = [
+  { TITLE: "25. 3월 시즌" },
+  { TITLE: "25. 4월 시즌1" },
+  { TITLE: "25. 4월 시즌2" },
+  { TITLE: "25. 5월 시즌" },
+  { TITLE: "25. 6월 시즌" },
+  { TITLE: "25. 7월 시즌" },
+  { TITLE: "25. 8월 시즌" },
+  { TITLE: "25. 9월 시즌" },
+];
+const HARDCODED_SEASONS = staticSeasonList.map((s) => s.TITLE);
+
 /* -------------------- 작은 아이콘 컴포넌트 -------------------- */
 function ClassIcon({ src, alt, size = 24 }) {
   return (
@@ -45,8 +58,10 @@ async function fetchH2H({ playerA = "", playerB = "", season = "ALL", limit = 0 
   if (!r.ok) throw new Error("Failed to fetch HeadToHead");
   const json = await r.json();
   dgroup("fetchH2H result", () => {
-    dlog("rows:", Array.isArray(json) ? json.length : 0);
-    if (Array.isArray(json) && json.length) {
+    const len = Array.isArray(json) ? json.length : 0;
+    dlog("rows:", len);
+    if (len) {
+      // 대용량(ALL)일 수 있으니 일부만 프린트
       console.table(json.slice(0, 5));
       const keys = Object.keys(json[0] || {});
       dlog("columns:", keys);
@@ -70,8 +85,9 @@ async function fetchH2HClass({ playerA = "", playerB = "", season = "ALL", limit
   if (!r.ok) throw new Error("Failed to fetch HeadToHeadClass");
   const json = await r.json();
   dgroup("fetchH2HClass result", () => {
-    dlog("rows:", Array.isArray(json) ? json.length : 0);
-    if (Array.isArray(json) && json.length) {
+    const len = Array.isArray(json) ? json.length : 0;
+    dlog("rows:", len);
+    if (len) {
       console.table(json.slice(0, 5));
       const keys = Object.keys(json[0] || {});
       dlog("columns:", keys);
@@ -81,22 +97,7 @@ async function fetchH2HClass({ playerA = "", playerB = "", season = "ALL", limit
 }
 
 /* -------------------- Utils -------------------- */
-// 시즌 목록(등장 순서 유지, 마지막이 최신)
-function uniqueSeasonsInOrder(rows) {
-  const seen = new Set();
-  const list = [];
-  for (const r of rows || []) {
-    const s = r?.SEASON;
-    if (s && !seen.has(s)) {
-      seen.add(s);
-      list.push(s);
-    }
-  }
-  dlog("[uniqueSeasonsInOrder]", list);
-  return list;
-}
-
-// 전체 승/패 집계 (디버깅 포함)
+// 전체 승/패 집계 (폴백용)
 function computeAgg(rows) {
   const isArr = Array.isArray(rows);
   dgroup("computeAgg()", () => {
@@ -122,10 +123,29 @@ function computeAgg(rows) {
   const bRate = total ? 100 - aRate : 0;
 
   dgroup("computeAgg() → result", () => {
-    dlog({ aWins, bWins, total, aRate: Number(aRate.toFixed?.(3) ?? aRate), bRate: Number(bRate.toFixed?.(3) ?? bRate) });
+    dlog({
+      aWins,
+      bWins,
+      total,
+      aRate: Number(aRate.toFixed?.(3) ?? aRate),
+      bRate: Number(bRate.toFixed?.(3) ?? bRate),
+    });
   });
 
   return { aWins, bWins, total, aRate, bRate };
+}
+
+/* 서버가 내려준 A_WINRATE를 우선 사용 (0~1 가정)
+ * 만약 시트가 0~100(%)로 저장이면 aPct 계산에서 *100 제거!
+ */
+function pickRatesFromServer(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return { aRate: 0, bRate: 0 };
+  const r = rows[0];
+  const wr = Number(r?.A_WINRATE);
+  if (!Number.isFinite(wr)) return { aRate: 0, bRate: 0 };
+  const aPct = wr * 100; // 시트가 이미 %면: const aPct = wr;
+  const bPct = 100 - aPct;
+  return { aRate: aPct, bRate: bPct };
 }
 
 /* -------------------- 클래스 매트릭스용 -------------------- */
@@ -148,7 +168,9 @@ function normalizeClassRows(rows, season, A, B) {
   let passCount = 0;
 
   for (const r of arr) {
-    const seasonOk = season === "ALL" ? true : (r.SEASON ? r.SEASON === season : true);
+      const seasonOk = r.SEASON
+      ? (season === "ALL" ? r.SEASON === "ALL" : r.SEASON === season)
+      : (season !== "ALL"); // SEASON 컬럼이 없으면 ALL에서는 제외
     if (!seasonOk) continue;
 
     const aName = (r.A ?? "").trim();
@@ -205,7 +227,6 @@ function buildClassMatrix(rows) {
 
   dgroup("buildClassMatrix() summary", () => {
     const flat = Object.entries(counts).map(([k, v]) => ({ pair: k, ...v }));
-    // non-zero 또는 데이터 존재하는 셀만 출력
     const interesting = flat.filter((x) => (x.total ?? 0) > 0 || (x.rows ?? 0) > 0);
     if (interesting.length) console.table(interesting);
     else dlog("no class data");
@@ -247,25 +268,18 @@ export default function HeadToHeadSlide2({
   const aLeft = `${slotLeftPct}%`;
   const bLeft = `${slotRightPct}%`;
 
-  /* 1) 시즌 목록 선로드 + 최신 시즌 디폴트 */
+  /* 1) 시즌 목록 선로드 + 최신 시즌 디폴트 (하드코딩) */
   useEffect(() => {
-    fetchH2H({ season: "ALL" })
-      .then((data) => {
-        const arr = Array.isArray(data) ? data : [];
-        const seasons = uniqueSeasonsInOrder(arr);
-        setSeasonList(["ALL", ...seasons]); // ← ALL 추가
-        const last = seasons.length ? seasons[seasons.length - 1] : "";
-        setSelectedSeason(last);
-        dgroup("init seasons", () => {
-          dlog("seasons:", seasons);
-          dlog("default season:", last);
-        });
-      })
-      .catch((e) => {
-        console.error(e);
-        setSeasonList([]);
-        setSelectedSeason("");
-      });
+    const seasons = Array.from(new Set(HARDCODED_SEASONS.filter(Boolean)));
+    setSeasonList(["ALL", ...seasons]);
+
+    const last = seasons.length ? seasons[seasons.length - 1] : "ALL";
+    setSelectedSeason(last);
+
+    dgroup("init seasons(hardcoded)", () => {
+      dlog("seasons:", seasons);
+      dlog("default season:", last);
+    });
   }, []);
 
   /* 2) 시즌 바뀌면 그 시즌의 유저 리스트 구성 (A/B 및 페어 결과 초기화) */
@@ -277,6 +291,7 @@ export default function HeadToHeadSlide2({
     }
     dlog("[season change]", selectedSeason);
     setLoadingUsers(true);
+
     fetchH2H({ season: selectedSeason })
       .then((data) => {
         const arr = Array.isArray(data) ? data : [];
@@ -330,11 +345,12 @@ export default function HeadToHeadSlide2({
       .then(([pairData, classData]) => {
         if (!alive) return;
 
-        // 페어 보정
+        // 페어: 선택 시즌(ALL 포함)에 맞춘 1행(또는 소수 행)만 사용
         const arr = Array.isArray(pairData) ? pairData : [];
         const filtered =
           selectedSeason === "ALL"
-            ? arr.filter((r) => r.A === selectedUserA && r.B === selectedUserB)
+            // ✅ ALL일 때는 SEASON도 "ALL"인 집계행만 사용
+            ? arr.filter((r) => r.SEASON === "ALL" && r.A === selectedUserA && r.B === selectedUserB)
             : arr.filter((r) => r.SEASON === selectedSeason && r.A === selectedUserA && r.B === selectedUserB);
         dgroup("pairRows filtered", () => {
           dlog("count:", filtered.length);
@@ -376,11 +392,16 @@ export default function HeadToHeadSlide2({
     setClassRows(null);
   };
 
-  /* 6) 메모 집계 */
+  /* 6) 메모 집계: 서버값(A_WINRATE) 우선, 없으면 computeAgg 폴백 */
   const hasPairData = Array.isArray(pairRows) && pairRows.length > 0;
   const { aRate, bRate } = useMemo(() => {
+    const srv = pickRatesFromServer(pairRows || []);
+    if (srv.aRate || srv.bRate) {
+      dlog("rates(from server)", srv);
+      return srv;
+    }
     const agg = computeAgg(pairRows || []);
-    dlog("agg rates", { aRate: agg.aRate, bRate: agg.bRate });
+    dlog("rates(from computeAgg)", agg);
     return agg;
   }, [pairRows]);
 
@@ -408,7 +429,7 @@ export default function HeadToHeadSlide2({
   return (
     <div className="relative mx-auto -mt-10" style={{ width, height }}>
       {/* 배경 */}
-     <div className="absolute inset-0 overflow-hidden z-0 pointer-events-none">
+      <div className="absolute inset-0 overflow-hidden z-0 pointer-events-none">
         <div className="relative h-full w-[100%] min-w-[900px] left-1/2 -translate-x-1/2">
           <Image
             src={bgSrc}
@@ -436,9 +457,17 @@ export default function HeadToHeadSlide2({
         <span className="px-3 py-1 text-3xl drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{selectedUserB || "?"}</span>
       </div>
 
-      {/* 전체 초기화 버튼 */}
-      <div className="absolute z-10  -mt-16" style={{ top: `${slotTopPct}%`, right: "30px", transform: "translateY(-50%)" }}>
-        <button onClick={handleReset} className="text-white hover:text-red-400 transition pr-40" title="전체 초기화">
+      {/* 전체 초기화 버튼 (z 올려서 덮임 방지) */}
+      <div
+        className="absolute z-30 -mt-16 pr-35"
+        style={{ top: `${slotTopPct}%`, right: "30px", transform: "translateY(-50%)" }}
+      >
+        <button
+          onClick={handleReset}
+          className="text-white hover:text-red-400 transition pr-4"
+          title="전체 초기화"
+          aria-label="전체 초기화"
+        >
           <RotateCcw size={28} />
         </button>
       </div>
@@ -446,7 +475,7 @@ export default function HeadToHeadSlide2({
       {/* 본문 */}
       <div className="absolute inset-0 z-10 p-6 flex flex-col mt-45 pl-12">
         {/* 시즌 드롭다운 */}
-        <div className="mb-2 flex items-center justify-end">
+        <div className="mb-2 flex items-center justify-end relative z-40 pointer-events-auto">
           <select
             value={selectedSeason}
             onChange={(e) => setSelectedSeason(e.target.value)}
@@ -495,9 +524,7 @@ export default function HeadToHeadSlide2({
                         setSelectedUserB(u);
                       }}
                       className={`px-4 py-2 rounded text-sm ${
-                        selectedUserB === u
-                          ? "bg-green-600"
-                          : "bg-gray-700 hover:bg-gray-600"
+                        selectedUserB === u ? "bg-green-600" : "bg-gray-700 hover:bg-gray-600"
                       }`}
                     >
                       {u}
@@ -512,13 +539,13 @@ export default function HeadToHeadSlide2({
           <div className="relative mt-6 w-full max-w-[1100px] mx-auto">
             {/* 로딩 오버레이: 결과 섹션 전체를 덮어씀 */}
             {loadingPair && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center
-                              bg-black/60 backdrop-blur-[1px]">
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-[1px]">
                 <div className="px-4 py-2 rounded bg-gray-800 text-white font-semibold">
                   Loading…
                 </div>
               </div>
             )}
+
             <div className="mb-2 text-2xl text-center">
               <span className="text-yellow-300 font-semibold">{selectedUserA}</span>
               <span className="text-neutral-200"> vs </span>
@@ -543,15 +570,27 @@ export default function HeadToHeadSlide2({
               ) : (
                 <div className="relative w-full h-full bg-gray-800 rounded overflow-hidden">
                   {/* A(빨강) */}
-                  <div className="h-full bg-red-600" style={{ width: `${Math.min(100, Math.max(0, aRate))}%` }} />
+                  <div
+                    className="h-full bg-red-600"
+                    style={{ width: `${Math.min(100, Math.max(0, aRate))}%` }}
+                  />
                   {/* B(파랑) */}
-                  <div className="absolute top-0 right-0 h-full bg-blue-600" style={{ width: `${Math.min(100, Math.max(0, bRate))}%` }} />
+                  <div
+                    className="absolute top-0 right-0 h-full bg-blue-600"
+                    style={{ width: `${Math.min(100, Math.max(0, bRate))}%` }}
+                  />
                   {/* 퍼센트 */}
                   <div className="absolute inset-0 text-white text-sm font-bold">
-                    <div className="absolute top-0 left-0 h-full flex items-center justify-center pointer-events-none" style={{ width: `${Math.min(100, Math.max(0, aRate))}%` }}>
+                    <div
+                      className="absolute top-0 left-0 h-full flex items-center justify-center pointer-events-none"
+                      style={{ width: `${Math.min(100, Math.max(0, aRate))}%` }}
+                    >
                       <span>{aRate.toFixed(1)}%</span>
                     </div>
-                    <div className="absolute top-0 right-0 h-full flex items-center justify-center pointer-events-none" style={{ width: `${Math.min(100, Math.max(0, bRate))}%` }}>
+                    <div
+                      className="absolute top-0 right-0 h-full flex items-center justify-center pointer-events-none"
+                      style={{ width: `${Math.min(100, Math.max(0, bRate))}%` }}
+                    >
                       <span>{bRate.toFixed(1)}%</span>
                     </div>
                   </div>
@@ -568,7 +607,9 @@ export default function HeadToHeadSlide2({
                 <span className="text-neutral-200"> 의 클래스별 상대 전적(%)</span>
               </div>
 
-              {!hasClassData && <div className="text-sm text-neutral-300 text-center">- No Data (By Class) -</div>}
+              {!hasClassData && (
+                <div className="text-sm text-neutral-300 text-center">- No Data (By Class) -</div>
+              )}
 
               {hasClassData && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -595,9 +636,15 @@ export default function HeadToHeadSlide2({
                             {/* 승률바 */}
                             <div className="relative flex-1 h-6 bg-gray-800 rounded overflow-hidden">
                               {/* A(빨강) */}
-                              <div className={`h-full ${noData ? "bg-gray-700" : "bg-red-600"}`} style={{ width: `${Math.min(100, Math.max(0, aPct))}%` }} />
+                              <div
+                                className={`h-full ${noData ? "bg-gray-700" : "bg-red-600"}`}
+                                style={{ width: `${Math.min(100, Math.max(0, aPct))}%` }}
+                              />
                               {/* B(파랑) */}
-                              <div className={`absolute top-0 right-0 h-full ${noData ? "bg-gray-700" : "bg-blue-600"}`} style={{ width: `${Math.min(100, Math.max(0, bPct))}%` }} />
+                              <div
+                                className={`absolute top-0 right-0 h-full ${noData ? "bg-gray-700" : "bg-blue-600"}`}
+                                style={{ width: `${Math.min(100, Math.max(0, bPct))}%` }}
+                              />
                               {/* 텍스트 */}
                               <div className="absolute inset-0 flex justify-between items-center px-2 text-[11px] font-bold text-white">
                                 <span>{noData ? "-" : `${aPct.toFixed(1)}%`}</span>
