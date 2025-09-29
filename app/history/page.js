@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import HeadToHeadSlide2 from "@/components/HeadToHeadSlide2";
 import DuoBalance from "@/components/DuoBalance";
 
 // 클래스명 매핑 (Main 페이지와 동일한 아이콘 파일명 사용)
@@ -195,8 +196,9 @@ export default function HistoryPage() {
           </tbody>
         </table>
       </div>
+      <HeadToHeadSlide2 />
       {/* ✅ 여기부터 추가: 듀오 밸런스 */}
-      <DuoBalance />
+      {/*<DuoBalance />*/}
     </div>
   );
 }

@@ -179,7 +179,7 @@ export default function DuoBalance() {
   const totalPages = Math.ceil(filtered.length / pageSize);
 
   return (
-    <div className="relative w-[900px] h-[1000px] mx-auto mt-20 text-white">
+    <div className="relative w-[900px] h-[1000px] mx-auto -mt-10 text-white">
       {/* 배경 */}
       <div className="absolute top-0 left-0 w-full h-full z-0">
         <Image
