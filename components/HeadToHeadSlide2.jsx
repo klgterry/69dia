@@ -262,6 +262,8 @@ export default function HeadToHeadSlide2({
 
   // 클래스별 원본
   const [classRows, setClassRows] = useState(null);
+  const [loadingClass, setLoadingClass] = useState(false);
+  const [showClass, setShowClass] = useState(false); // 버튼 눌러 열기
 
   // 위치 좌표
   const slotTop = `${slotTopPct}%`;
@@ -272,13 +274,11 @@ export default function HeadToHeadSlide2({
   useEffect(() => {
     const seasons = Array.from(new Set(HARDCODED_SEASONS.filter(Boolean)));
     setSeasonList(["ALL", ...seasons]);
-
-    const last = seasons.length ? seasons[seasons.length - 1] : "ALL";
-    setSelectedSeason(last);
+    setSelectedSeason("ALL");
 
     dgroup("init seasons(hardcoded)", () => {
       dlog("seasons:", seasons);
-      dlog("default season:", last);
+      dlog("default season: ALL");
     });
   }, []);
 
@@ -327,61 +327,96 @@ export default function HeadToHeadSlide2({
     return list;
   }, [userList, selectedUserA]);
 
-  /* 4) B 선택 시: 페어 + 클래스 병렬 조회 */
+  /* 4) B 선택 시: 페어만 즉시 조회 */
   useEffect(() => {
-    if (!selectedSeason || !selectedUserA || !selectedUserB) {
-      setPairRows(null);
+  if (!selectedSeason || !selectedUserA || !selectedUserB) {
+    setPairRows(null);
+    setClassRows(null);
+    setShowClass(false);
+    return;
+  }
+
+  let alive = true;
+  setLoadingPair(true);
+
+  const pairLimit = selectedSeason === "ALL" ? 0 : 1; // ✅ ALL이면 전체 조회
+  dlog("[fetch pair only]", {
+    season: selectedSeason,
+    A: selectedUserA,
+    B: selectedUserB,
+    limit: pairLimit,
+  });
+
+  fetchH2H({
+    playerA: selectedUserA,
+    playerB: selectedUserB,
+    season: selectedSeason,
+    limit: pairLimit,
+  })
+    .then((pairData) => {
+      if (!alive) return;
+
+      const arr = Array.isArray(pairData) ? pairData : [];
+      const byAB = arr.filter((r) => r.A === selectedUserA && r.B === selectedUserB);
+
+      let filtered = [];
+      if (selectedSeason === "ALL") {
+        // 1) 서버가 ALL 행을 주면 그대로 사용
+        const allRow = byAB.find((r) => r.SEASON === "ALL");
+        if (allRow) {
+          filtered = [allRow];
+        } else {
+          // 2) 없으면 클라에서 합산하여 ALL 한 줄 생성
+          const toNum = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+          };
+          const aWins = byAB.reduce((s, r) => s + toNum(r.A_WINS), 0);
+          const bWins = byAB.reduce((s, r) => s + toNum(r.B_WINS), 0);
+          const total = aWins + bWins;
+          filtered = [
+            {
+              SEASON: "ALL",
+              A: selectedUserA,
+              B: selectedUserB,
+              A_WINS: aWins,
+              B_WINS: bWins,
+              TOTAL: total,
+              // 서버가 0~1 스케일을 쓰므로 여기도 동일 스케일 유지
+              A_WINRATE: total ? aWins / total : 0,
+            },
+          ];
+        }
+      } else {
+        // 특정 시즌만 필터
+        filtered = byAB.filter((r) => r.SEASON === selectedSeason);
+      }
+
+      dgroup("pairRows filtered", () => {
+        dlog("count:", filtered.length);
+        console.table(filtered);
+      });
+
+      setPairRows(filtered);
+      // 클래스는 버튼으로 별도 로드하므로 초기화
       setClassRows(null);
-      return;
-    }
-    let alive = true;
-    setLoadingPair(true);
-    dlog("[fetch pair+class]", { season: selectedSeason, A: selectedUserA, B: selectedUserB });
+      setShowClass(false);
+    })
+    .catch((err) => {
+      console.error("[pair/class fetch error]", err);
+      setPairRows([]);
+      setClassRows(null);
+      setShowClass(false);
+    })
+    .finally(() => {
+      if (alive) setLoadingPair(false);
+    });
 
-    Promise.all([
-      fetchH2H({ playerA: selectedUserA, playerB: selectedUserB, season: selectedSeason }),
-      fetchH2HClass({ playerA: selectedUserA, playerB: selectedUserB, season: selectedSeason }),
-    ])
-      .then(([pairData, classData]) => {
-        if (!alive) return;
+  return () => {
+    alive = false;
+  };
+}, [selectedSeason, selectedUserA, selectedUserB]);
 
-        // 페어: 선택 시즌(ALL 포함)에 맞춘 1행(또는 소수 행)만 사용
-        const arr = Array.isArray(pairData) ? pairData : [];
-        const filtered =
-          selectedSeason === "ALL"
-            // ✅ ALL일 때는 SEASON도 "ALL"인 집계행만 사용
-            ? arr.filter((r) => r.SEASON === "ALL" && r.A === selectedUserA && r.B === selectedUserB)
-            : arr.filter((r) => r.SEASON === selectedSeason && r.A === selectedUserA && r.B === selectedUserB);
-        dgroup("pairRows filtered", () => {
-          dlog("count:", filtered.length);
-          console.table(filtered);
-        });
-        setPairRows(filtered);
-
-        // 클래스 데이터 보정 + 로그
-        dgroup("classData RAW", () => {
-          if (Array.isArray(classData) && classData.length) {
-            console.table(classData.slice(0, 10));
-            dlog("keys:", Object.keys(classData[0] || {}));
-          } else {
-            dlog("no classData");
-          }
-        });
-        const normalized = normalizeClassRows(classData, selectedSeason, selectedUserA, selectedUserB);
-        dlog("classRows normalized count:", normalized.length);
-        setClassRows(normalized);
-      })
-      .catch((err) => {
-        console.error("[pair/class fetch error]", err);
-        setPairRows([]);
-        setClassRows([]);
-      })
-      .finally(() => alive && setLoadingPair(false));
-
-    return () => {
-      alive = false;
-    };
-  }, [selectedSeason, selectedUserA, selectedUserB]);
 
   /* 5) 핸들러 */
   const handleReset = () => {
@@ -390,6 +425,30 @@ export default function HeadToHeadSlide2({
     setSelectedUserB("");
     setPairRows(null);
     setClassRows(null);
+    setShowClass(false);
+    setLoadingClass(false);
+  };
+
+   // 클래스 데이터 지연 로딩
+  const handleLoadClass = async () => {
+    if (!selectedSeason || !selectedUserA || !selectedUserB) return;
+    setShowClass(true);
+    setLoadingClass(true);
+    try {
+      const classData = await fetchH2HClass({
+        playerA: selectedUserA, playerB: selectedUserB, season: selectedSeason,
+      });
+      const normalized = normalizeClassRows(classData, selectedSeason, selectedUserA, selectedUserB);
+      setClassRows(normalized);
+      setShowClass(true);
+      dlog("classRows loaded:", normalized.length);
+    } catch (e) {
+      console.error("[class fetch error]", e);
+      setClassRows([]);
+      setShowClass(false);
+    } finally {
+      setLoadingClass(false);
+    }
   };
 
   /* 6) 메모 집계: 서버값(A_WINRATE) 우선, 없으면 computeAgg 폴백 */
@@ -579,87 +638,131 @@ export default function HeadToHeadSlide2({
                     className="absolute top-0 right-0 h-full bg-blue-600"
                     style={{ width: `${Math.min(100, Math.max(0, bRate))}%` }}
                   />
-                  {/* 퍼센트 */}
-                  <div className="absolute inset-0 text-white text-sm font-bold">
-                    <div
-                      className="absolute top-0 left-0 h-full flex items-center justify-center pointer-events-none"
-                      style={{ width: `${Math.min(100, Math.max(0, aRate))}%` }}
-                    >
-                      <span>{aRate.toFixed(1)}%</span>
-                    </div>
-                    <div
-                      className="absolute top-0 right-0 h-full flex items-center justify-center pointer-events-none"
-                      style={{ width: `${Math.min(100, Math.max(0, bRate))}%` }}
-                    >
-                      <span>{bRate.toFixed(1)}%</span>
-                    </div>
-                  </div>
+                  {/* 퍼센트 (폭과 무관하게 항상 표시) */}
+<div className="absolute inset-0 flex items-center justify-between px-2 text-sm font-bold text-white pointer-events-none">
+  <span className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+    {aRate.toFixed(1)}%
+  </span>
+  <span className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+    {bRate.toFixed(1)}%
+  </span>
+</div>
+
                 </div>
               )}
             </div>
 
             {/* ----- 클래스 매트릭스 섹션 ----- */}
-            <div className="mt-10 w-full max-w-[1100px] mx-auto">
-              <div className="mb-3 text-2xl text-center">
-                <span className="text-yellow-300 font-semibold">{selectedUserA}</span>
-                <span className="text-neutral-200"> vs </span>
-                <span className="text-yellow-300 font-semibold">{selectedUserB}</span>
-                <span className="text-neutral-200"> 의 클래스별 상대 전적(%)</span>
+<div className="mt-8 w-full max-w-[1100px] mx-auto">
+{/* 트리거 버튼 (1회성) */}
+{!showClass && (
+  <div className="flex justify-center -mt-5">
+    <button
+      onClick={handleLoadClass}
+      disabled={loadingClass}
+      className={`px-4 py-2 rounded text-sm font-semibold ${
+        loadingClass
+          ? "bg-gray-300 text-black opacity-70 cursor-not-allowed"
+          : "bg-gray-300 text-black hover:bg-gray-400"
+      }`}
+      title="클래스별 전적을 불러옵니다"
+    >
+      {loadingClass ? "불러오는 중…" : "클래스별 상대전적 보기"}
+    </button>
+  </div>
+)}
+
+{/* 안내문도 버튼이 있을 때만 */}
+  {!showClass && (
+    <div className="mt-3 text-center text-neutral-400 text-sm">
+      버튼을 눌러 클래스별 전적을 확인하세요.
+    </div>
+  )}
+
+  {/* 클래스 섹션 본문 (토글 On일 때만) */}
+  {showClass && (
+    <>
+      <div className="mb-3 text-2xl text-center">
+        <span className="text-yellow-300 font-semibold">{selectedUserA}</span>
+        <span className="text-neutral-200"> vs </span>
+        <span className="text-yellow-300 font-semibold">{selectedUserB}</span>
+        <span className="text-neutral-200"> 의 클래스별 상대 전적(%)</span>
+      </div>
+
+      {/* 로딩 오버레이 */}
+      {loadingClass && (
+        <div className="relative">
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-[1px] rounded">
+            <div className="px-4 py-2 rounded bg-gray-800 text-white font-semibold mt-10">
+              Loading…
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 데이터 없음 */}
+      {!hasClassData && !loadingClass && (
+        <div className="text-sm text-neutral-300 text-center">
+          - No Data (By Class) -
+        </div>
+      )}
+
+      {/* 매트릭스 그리드 */}
+      {hasClassData && !loadingClass && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {CLASS_ORDER.map((aC) => (
+            <div key={aC} className="flex flex-col items-stretch gap-2">
+              {/* 좌측 A 클래스 아이콘 + VS */}
+              <div className="flex items-center gap-2 mb-1">
+                <ClassIcon src={CLASS_ICON[aC]} alt={aC} size={28} />
+                <span className="text-neutral-200 text-sm">VS</span>
               </div>
 
-              {!hasClassData && (
-                <div className="text-sm text-neutral-300 text-center">- No Data (By Class) -</div>
-              )}
+              {/* B 클래스 4줄 */}
+              {CLASS_ORDER.map((bC) => {
+                const cell =
+                  classMatrix?.[aC]?.[bC] || { total: 0, aRate: null, bRate: null };
+                const aPct = cell.aRate ?? 0;
+                const bPct = cell.bRate ?? 0;
+                const noData = cell.aRate === null;
 
-              {hasClassData && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  {CLASS_ORDER.map((aC) => (
-                    <div key={aC} className="flex flex-col items-stretch gap-2">
-                      {/* 좌측 A 클래스 아이콘 + VS */}
-                      <div className="flex items-center gap-2 mb-1">
-                        <ClassIcon src={CLASS_ICON[aC]} alt={aC} size={28} />
-                        <span className="text-neutral-200 text-sm">VS</span>
-                      </div>
+                return (
+                  <div key={`${aC}-${bC}`} className="flex items-center gap-2">
+  {/* 승률바 */}
+  <div className="relative flex-1 h-6 bg-gray-800 rounded overflow-hidden">
+    {/* A(빨강) */}
+    <div
+      className={`h-full ${noData ? "bg-gray-700" : "bg-red-600"}`}
+      style={{ width: `${Math.min(100, Math.max(0, aPct))}%` }}
+    />
+    {/* B(파랑) */}
+    <div
+      className={`absolute top-0 right-0 h-full ${
+        noData ? "bg-gray-700" : "bg-blue-600"
+      }`}
+      style={{ width: `${Math.min(100, Math.max(0, bPct))}%` }}
+    />
+    {/* 퍼센트 텍스트 */}
+    <div className="absolute inset-0 flex justify-between items-center px-2 text-[11px] font-bold text-white">
+      <span>{noData ? "-" : `${aPct.toFixed(1)}%`}</span>
+      <span>{noData ? "-" : `${bPct.toFixed(1)}%`}</span>
+    </div>
+  </div>
 
-                      {/* B 클래스 4줄 */}
-                      {CLASS_ORDER.map((bC) => {
-                        const cell = classMatrix?.[aC]?.[bC] || { total: 0, aRate: null, bRate: null };
-                        const aPct = cell.aRate ?? 0;
-                        const bPct = cell.bRate ?? 0;
-                        const noData = cell.aRate === null;
-
-                        return (
-                          <div key={`${aC}-${bC}`} className="flex items-center gap-2">
-                            {/* B 아이콘 */}
-                            <ClassIcon src={CLASS_ICON[bC]} alt={bC} size={24} />
-
-                            {/* 승률바 */}
-                            <div className="relative flex-1 h-6 bg-gray-800 rounded overflow-hidden">
-                              {/* A(빨강) */}
-                              <div
-                                className={`h-full ${noData ? "bg-gray-700" : "bg-red-600"}`}
-                                style={{ width: `${Math.min(100, Math.max(0, aPct))}%` }}
-                              />
-                              {/* B(파랑) */}
-                              <div
-                                className={`absolute top-0 right-0 h-full ${noData ? "bg-gray-700" : "bg-blue-600"}`}
-                                style={{ width: `${Math.min(100, Math.max(0, bPct))}%` }}
-                              />
-                              {/* 텍스트 */}
-                              <div className="absolute inset-0 flex justify-between items-center px-2 text-[11px] font-bold text-white">
-                                <span>{noData ? "-" : `${aPct.toFixed(1)}%`}</span>
-                                <span>{noData ? "-" : `${bPct.toFixed(1)}%`}</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              )}
+  {/* B 아이콘 (오른쪽으로 이동) */}
+  <ClassIcon src={CLASS_ICON[bC]} alt={bC} size={24} />
+</div>
+                );
+              })}
             </div>
-            {/* ----- /클래스 매트릭스 섹션 ----- */}
+          ))}
+        </div>
+      )}
+    </>
+  )}
+</div>
+{/* ----- /클래스 매트릭스 섹션 ----- */}
+
           </div>
         )}
       </div>
