@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { RotateCcw } from "lucide-react";
 
@@ -95,6 +95,12 @@ async function fetchH2HClass({ playerA = "", playerB = "", season = "ALL", limit
     }
   });
   return json;
+}
+
+async function fetchUserListALL() {
+  const res = await fetch("/api/gasApi?action=getUserList");
+  const json = await res.json();
+  return json.users || [];
 }
 
 /* -------------------- Utils -------------------- */
@@ -271,6 +277,13 @@ export default function HeadToHeadSlide2({
   const aLeft = `${slotLeftPct}%`;
   const bLeft = `${slotRightPct}%`;
 
+  // 🔹 클래스 프리패치 상태/캐시키
+  const [prefetchingClass, setPrefetchingClass] = useState(false);
+  const [classKey, setClassKey] = useState(""); // "season|A|B"
+
+  // 🔹 in-flight 클래스 요청 공유용
+  const classInflightRef = useRef(null); // { key: string, promise: Promise<void> } | null
+
   /* 1) 시즌 목록 선로드 + 최신 시즌 디폴트 (하드코딩) */
   useEffect(() => {
     const seasons = Array.from(new Set(HARDCODED_SEASONS.filter(Boolean)));
@@ -293,17 +306,47 @@ export default function HeadToHeadSlide2({
     dlog("[season change]", selectedSeason);
     setLoadingUsers(true);
 
+    // ✅ ALL: 사전 정렬된 유저리스트만 빠르게 가져오기
+    if (selectedSeason === "ALL") {
+      fetchUserListALL()
+        .then((list) => {
+          const users = Array.isArray(list) ? list.filter(Boolean).map((u) => String(u).trim()) : [];
+          setUserList(users);
+          setSelectedUserA("");
+          setSelectedUserB("");
+          setPairRows(null);
+          setClassRows(null);
+          dgroup("season→users (ALL from UserLastPlayed)", () => {
+            dlog("season:", selectedSeason, "users:", users.length);
+            console.table(users.slice(0, 30).map((u) => ({ user: u })));
+          });
+        })
+        .catch((e) => {
+          console.error("[fetchUserListALL error]", e);
+          setUserList([]);
+          setSelectedUserA("");
+          setSelectedUserB("");
+          setPairRows(null);
+          setClassRows(null);
+        })
+        .finally(() => setLoadingUsers(false));
+      return; // 🔚 ALL 분기 종료
+    }
+
+    // ✅ 특정 시즌: 기존 방식 유지
     fetchH2H({ season: selectedSeason })
       .then((data) => {
         const arr = Array.isArray(data) ? data : [];
-        const users = Array.from(new Set(arr.flatMap((r) => [r.A, r.B]).filter(Boolean))).sort((a, b) =>
-          a.localeCompare(b, "ko")
-        );
+        const users = Array.from(new Set(arr.flatMap((r) => [r.A, r.B]).filter(Boolean)))
+          .map((u) => String(u).trim())
+          .sort((a, b) => a.localeCompare(b, "ko"));
+
         setUserList(users);
         setSelectedUserA("");
         setSelectedUserB("");
         setPairRows(null);
         setClassRows(null);
+
         dgroup("season→users", () => {
           dlog("season:", selectedSeason, "users:", users.length);
           console.table(users.slice(0, 30).map((u) => ({ user: u })));
@@ -319,6 +362,7 @@ export default function HeadToHeadSlide2({
       })
       .finally(() => setLoadingUsers(false));
   }, [selectedSeason]);
+
 
   /* 3) A 선택 시 B 후보 리스트 */
   const availableUsers = useMemo(() => {
@@ -418,6 +462,50 @@ export default function HeadToHeadSlide2({
   };
 }, [selectedSeason, selectedUserA, selectedUserB]);
 
+// ✅ hasPairData를 참조하지 않고 pairRows로 직접 체크
+useEffect(() => {
+  if (!selectedSeason || !selectedUserA || !selectedUserB) return;
+
+  const pairReady = Array.isArray(pairRows) && pairRows.length > 0;
+  if (!pairReady) return;
+  if (showClass) return;
+
+  const key = `${selectedSeason}|${selectedUserA}|${selectedUserB}`;
+  // 이미 같은 키로 캐시됨
+  if (Array.isArray(classRows) && classRows.length > 0 && classKey === key) return;
+  // 이미 같은 키로 요청 중이면 재요청 금지
+  if (classInflightRef.current?.key === key) return;
+
+  let alive = true;
+  setPrefetchingClass(true);
+
+  const promise = fetchH2HClass({ playerA: selectedUserA, playerB: selectedUserB, season: selectedSeason })
+    .then((classData) => {
+      if (!alive) return;
+      const normalized = normalizeClassRows(classData, selectedSeason, selectedUserA, selectedUserB);
+      setClassRows(normalized);
+      setClassKey(key);
+      dgroup("prefetch H2HClass done", () => dlog("key:", key, "rows:", normalized.length));
+    })
+    .catch((e) => {
+      if (!alive) return;
+      console.error("[class prefetch error]", e);
+      // 실패 시 캐시 초기화(버튼 클릭 시 재시도 가능)
+      setClassRows(null);
+      setClassKey("");
+    })
+    .finally(() => {
+      if (alive) setPrefetchingClass(false);
+      // 현재 요청이 나 자신이면 ref 해제
+      if (classInflightRef.current?.key === key) classInflightRef.current = null;
+    });
+
+  // 🔸 요청 공유 저장
+  classInflightRef.current = { key, promise };
+
+  return () => { alive = false; };
+}, [selectedSeason, selectedUserA, selectedUserB, pairRows, showClass, classRows, classKey]);
+
 
   /* 5) 핸들러 */
   const handleReset = () => {
@@ -428,29 +516,77 @@ export default function HeadToHeadSlide2({
     setClassRows(null);
     setShowClass(false);
     setLoadingClass(false);
+    setClassKey(""); // 🔸 추가
+    classInflightRef.current = null; // 🔸 추가
   };
 
    // 클래스 데이터 지연 로딩
-  const handleLoadClass = async () => {
-    if (!selectedSeason || !selectedUserA || !selectedUserB) return;
+  // ⬇️ 기존 handleLoadClass 전부 교체
+const handleLoadClass = async () => {
+  if (!selectedSeason || !selectedUserA || !selectedUserB) return;
+
+  const key = `${selectedSeason}|${selectedUserA}|${selectedUserB}`;
+  dlog("[class] handleLoadClass click. key=", key);
+
+  // 1) 캐시가 이미 준비됨 → 즉시 열기
+  const cachedReady =
+    classKey === key && Array.isArray(classRows) && classRows.length > 0;
+  if (cachedReady) {
+    dlog("[class] cached ready → showClass=true");
     setShowClass(true);
+    return;
+  }
+
+  // 2) 같은 키로 프리패치가 진행 중이면 그 프라미스를 기다린 뒤 열기
+  if (classInflightRef.current?.key === key) {
+    dlog("[class] awaiting in-flight prefetch…");
     setLoadingClass(true);
     try {
-      const classData = await fetchH2HClass({
-        playerA: selectedUserA, playerB: selectedUserB, season: selectedSeason,
-      });
-      const normalized = normalizeClassRows(classData, selectedSeason, selectedUserA, selectedUserB);
-      setClassRows(normalized);
-      setShowClass(true);
-      dlog("classRows loaded:", normalized.length);
-    } catch (e) {
-      console.error("[class fetch error]", e);
-      setClassRows([]);
-      setShowClass(false);
+      await classInflightRef.current.promise;
     } finally {
       setLoadingClass(false);
     }
-  };
+    dlog("[class] prefetch finished → showClass=true");
+    setShowClass(true); // ✅ 프리패치 완료 후에 열기
+    return;
+  }
+
+  // 3) 캐시/프리패치 모두 없음 → 지금 즉시 요청
+  dlog("[class] on-demand fetch start");
+  setLoadingClass(true);
+  const promise = fetchH2HClass({
+    playerA: selectedUserA,
+    playerB: selectedUserB,
+    season: selectedSeason,
+  })
+    .then((classData) => {
+      const normalized = normalizeClassRows(
+        classData,
+        selectedSeason,
+        selectedUserA,
+        selectedUserB
+      );
+      setClassRows(normalized);
+      setClassKey(key);
+      dlog("[class] on-demand normalized rows:", normalized.length);
+    })
+    .catch((e) => {
+      console.error("[class fetch error]", e);
+      setClassRows([]);
+    })
+    .finally(() => {
+      setLoadingClass(false);
+      if (classInflightRef.current?.key === key) classInflightRef.current = null;
+    });
+
+  classInflightRef.current = { key, promise };
+
+  // 요청 시작과 동시에 섹션 오픈 (로딩 오버레이가 가림)
+  dlog("[class] showClass=true (on-demand)");
+  setShowClass(true);
+};
+
+
 
   /* 6) 메모 집계: 서버값(A_WINRATE) 우선, 없으면 computeAgg 폴백 */
   const hasPairData = Array.isArray(pairRows) && pairRows.length > 0;
@@ -582,6 +718,8 @@ export default function HeadToHeadSlide2({
                         setPairRows(null);
                         setClassRows(null);
                         setSelectedUserB(u);
+                        setClassKey(""); // 🔸 추가
+                        classInflightRef.current = null; // 🔸 추가
                       }}
                       className={`px-4 py-2 rounded text-sm ${
                         selectedUserB === u ? "bg-green-600" : "bg-gray-700 hover:bg-gray-600"
