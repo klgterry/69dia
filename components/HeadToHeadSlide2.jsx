@@ -27,6 +27,7 @@ const staticSeasonList = [
   { TITLE: "25. 8월 시즌" },
   { TITLE: "25. 9월 시즌" },
   { TITLE: "25. 10월 시즌" },
+  { TITLE: "25. 11월 시즌" },
 ];
 const HARDCODED_SEASONS = staticSeasonList.map((s) => s.TITLE);
 
