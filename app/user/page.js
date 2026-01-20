@@ -345,7 +345,7 @@ export default function UserPage() {
         {isUserListLoading ? (
           <p className="text-gray-400 text-sm text-center">🚀데이터를 불러오는 중입니다...</p>
         ) : (
-          <div className="relative w-[824px] h-[150px] mx-auto my-6 rounded-lg p-4 bg-[#353f54]">
+          <div className="relative w-[824px] h-[200px] mx-auto my-6 rounded-lg p-4 bg-[#353f54]">
              
             <div className="flex flex-wrap justify-left gap-1 w-full h-full items-center">
             {userList.map((user) => (
