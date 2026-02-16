@@ -246,6 +246,11 @@ function buildClassMatrix(rows) {
   return matrix;
 }
 
+const isActiveUser = (u) => {
+  const s = String(u ?? "").trim();
+  return s && !s.includes("미사용");
+};
+
 /* -------------------- Component -------------------- */
 export default function HeadToHeadSlide2({
   width = 900,
@@ -314,7 +319,10 @@ export default function HeadToHeadSlide2({
     if (selectedSeason === "ALL") {
       fetchUserListALL()
         .then((list) => {
-          const users = Array.isArray(list) ? list.filter(Boolean).map((u) => String(u).trim()) : [];
+          const users = Array.isArray(list)
+            ? list.filter(isActiveUser).map((u) => String(u).trim())
+            : [];
+
           setUserList(users);
           setSelectedUserA("");
           setSelectedUserB("");
@@ -341,9 +349,12 @@ export default function HeadToHeadSlide2({
     fetchH2H({ season: selectedSeason })
       .then((data) => {
         const arr = Array.isArray(data) ? data : [];
-        const users = Array.from(new Set(arr.flatMap((r) => [r.A, r.B]).filter(Boolean)))
+        const users = Array.from(
+          new Set(arr.flatMap((r) => [r.A, r.B]).filter(isActiveUser))
+        )
           .map((u) => String(u).trim())
           .sort((a, b) => a.localeCompare(b, "ko"));
+
 
         setUserList(users);
         setSelectedUserA("");
@@ -748,7 +759,7 @@ const handleLoadClass = async () => {
               </div>
             )}
 
-            <div className="mb-2 text-2xl text-center">
+            <div className="mb-2 text-2xl text-center -mt-3">
               <span className="text-yellow-300 font-semibold">{selectedUserA}</span>
               <span className="text-neutral-200"> vs </span>
               <span className="text-yellow-300 font-semibold">{selectedUserB}</span>
@@ -825,7 +836,7 @@ const handleLoadClass = async () => {
   {/* 클래스 섹션 본문 (토글 On일 때만) */}
   {showClass && (
     <>
-      <div className="mb-3 text-2xl text-center">
+      <div className="mb-3 text-2xl text-center -mt-6">
         <span className="text-yellow-300 font-semibold">{selectedUserA}</span>
         <span className="text-neutral-200"> vs </span>
         <span className="text-yellow-300 font-semibold">{selectedUserB}</span>
