@@ -61,6 +61,7 @@ export default function PrizePage() {
   const [userSummary, setUserSummary] = useState([]);
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [rouletteItems, setRouletteItems] = useState([]);
+  const [selectedYear, setSelectedYear] = useState("2026");
 
   function getParticipantsBySeason(data, season) {
   return data
@@ -115,6 +116,24 @@ export default function PrizePage() {
   const baseTop = 130; // 시즌 시작 위치
   const rowHeight = 64; // 줄 간격 (이미지에 맞춰 조정)
 
+  function getYearFromSeason(seasonStr) {
+    if (!seasonStr || typeof seasonStr !== "string") return null;
+
+    // 예: "25. 10월 시즌" → 2025
+    const m = seasonStr.match(/^\s*(\d{2})\s*\./);
+    if (m) return `20${m[1]}`;
+
+    // 예: "2025 10월" 같은 형태도 대비
+    const m2 = seasonStr.match(/(20\d{2})/);
+    if (m2) return m2[1];
+
+    return null;
+  }
+
+  const yearFilteredPrizeData = prizeData
+  .filter((row) => getYearFromSeason(row.season) === selectedYear)
+  .slice(0, 12);
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       {/* 네비게이션 바 */}
@@ -154,6 +173,21 @@ export default function PrizePage() {
 
       {/* 표 영역 */}
       <div className="relative w-[800px] h-[1100px] mx-auto mt-10">
+        {/* 연도 드롭다운 (표 오른쪽 상단) */}
+        <div className="absolute top-[40px] right-[30px] z-50 pr-5">
+          <select
+            value={selectedYear}
+            onChange={(e) => {
+              setSelectedYear(e.target.value);
+              setSelectedSeason(null); // 룰렛 모달 열려있으면 닫기(선택)
+            }}
+            className="bg-gray-800 text-white border border-gray-600 rounded px-3 py-2 text-lg font-bold"
+          >
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+          </select>
+        </div>
+
         {/* 배경 이미지 */}
         <Image
           src="/icons/prize_table.png"
@@ -194,14 +228,14 @@ export default function PrizePage() {
 
 
         {/* 데이터 출력 */}
-        {prizeData.map((row, idx) => {
+        {yearFilteredPrizeData.map((row, idx) => {
         const top = 165 + idx * 75; // 줄 시작 y좌표
 
         return (
             <div key={idx}>
             {/* 시즌 */}
             <div
-                className="absolute left-[40px] w-[200px] h-[60px] flex items-center px-2 text-2xl text-white text-left truncate"
+                className="absolute left-[40px] w-[200px] h-[65px] flex items-center px-2 text-2xl text-white text-left truncate"
                 style={{ top: `${top}px` }}
             >
                 {row.season || "-"}
@@ -221,10 +255,13 @@ export default function PrizePage() {
                 content={row.winner_detail}
                 top={top}
                 left={420}
-                width={210}
+                width={250}
               >
-                {row.winner || "-"}
+                <span className="text-base leading-[1.1]">
+                  {row.winner || "-"}
+                </span>
               </Tooltip>
+
 
               <button
                 className="absolute right-[50px] top-[calc(50%-16px)] bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded shadow-md text-sm"
