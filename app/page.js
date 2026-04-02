@@ -87,6 +87,7 @@ export default function HomePage() {
       { TITLE: "26. 1월 시즌" },
       { TITLE: "26. 2월 시즌" },
       { TITLE: "26. 3월 시즌" },
+       { TITLE: "26. 4월 시즌" },
     ];
 
     setSeasonList(staticSeasonList);
