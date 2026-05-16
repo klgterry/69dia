@@ -361,7 +361,7 @@ export default function UserPage() {
                 )}
       
                 {/* 🎖 시즌 BEST 배너 - 항상 표시 */}
-                <div className="relative w-[150px] h-[200px]">
+                <div className="relative w-[150px] h-[240px]">
                   <Image
                     src="/icons/etc/시즌베스트.png" // 또는 "/시즌베스트.png"
                     alt="All Season Best"
@@ -371,7 +371,7 @@ export default function UserPage() {
                 </div>
                   {/* 🥇 최고 랭크 출력 텍스트 */}
                   {userBestRank !== null && (
-                    <div className="absolute top-4/9 w-full text-center text-white text-7xl drop-shadow-[0_0_4px_rgba(255,0,0,1)]">
+                    <div className="absolute top-4/9 w-[140px] text-center text-white text-6xl drop-shadow-[0_0_4px_rgba(255,0,0,1)]">
                       {userBestRank}위
                     </div>
                   )}
@@ -718,7 +718,7 @@ function formatDateTime(isoString) {
 }
 
 function getBadgeLevelByCount(count) {
-  if (count >= 10) return "noble";
+  if (count >= 10) return "heaven";
   if (count >= 6) return "noble";
   if (count >= 3) return "fantastic";
   return "origin";
