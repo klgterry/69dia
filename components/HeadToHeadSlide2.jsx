@@ -34,6 +34,7 @@ const staticSeasonList = [
   { TITLE: "26. 3월 시즌" },
   { TITLE: "26. 4월 시즌" },
   { TITLE: "26. 5월 시즌" },
+  { TITLE: "26. 6월 시즌" },
 ];
 const HARDCODED_SEASONS = staticSeasonList.map((s) => s.TITLE);
 
