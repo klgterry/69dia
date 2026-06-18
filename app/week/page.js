@@ -43,6 +43,30 @@ async function fetchLeaderboardForAllSeason() {
   return { players: normalized.slice(0, 15) };
 }
 
+function UserImage({ username }) {
+  const trimmed = username?.trim();
+
+  const [src, setSrc] = useState(
+    trimmed
+      ? `/icons/users/웹_${trimmed}.jpg`
+      : "/icons/users/default.png"
+  );
+
+  return (
+    <Image
+      src={src}
+      alt={trimmed || "player"}
+      fill
+      className="object-cover"
+      onError={() => {
+        if (src !== "/icons/users/default.png") {
+          setSrc("/icons/users/default.png");
+        }
+      }}
+    />
+  );
+}
+
 /* ===== 주간 페이지 ===== */
 export default function WeekPage() {
   const router = useRouter();
@@ -148,13 +172,7 @@ export default function WeekPage() {
     return (
       <div className="flex items-center gap-2">
         <div className="relative w-5 h-5 rounded overflow-hidden">
-          <Image
-            src={imgSrc}
-            alt={trimmed || "player"}
-            fill
-            className="object-cover"
-            onError={(e) => (e.currentTarget.src = "/icons/users/default.png")}
-          />
+          <UserImage username={trimmed} />
         </div>
         <span className={`text-sm truncate w-[39px] text-left ${getTextClass(rank)}`}>{trimmed}</span>
       </div>
