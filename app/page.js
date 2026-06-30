@@ -35,31 +35,31 @@ export default function HomePage() {
   const router = useRouter();
 
   // app/page.js 또는 HomePage 컴포넌트 내부
-  /*useEffect(() => {
-    openPopup();
-  }, []);
+  // useEffect(() => {
+  //   openPopup();
+  // }, []);
   
-  function openPopup() {
-    const isMobile = window.innerWidth <= 768; // 또는 userAgent 체크도 가능
+  // function openPopup() {
+  //   const isMobile = window.innerWidth <= 768; // 또는 userAgent 체크도 가능
   
-    if (isMobile) {
-        return;
-    } else {
-      // 데스크탑용 기본 팝업
-      /*window.open(
-        "/popup1",
-        "popup3",
-        "width=509,height=800,left=0,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
-      );*/
+  //   if (isMobile) {
+  //       return;
+  //   } else {
+  //     // 데스크탑용 기본 팝업
+  //     window.open(
+  //       "/popup1",
+  //       "popup3",
+  //       "width=509,height=800,left=0,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
+  //     );
 
-      /*window.open(
-        "/popup2",
-        "popup4",
-        "width=406,height=406,left=509,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
-      );*/
+  //     window.open(
+  //       "/popup2",
+  //       "popup4",
+  //       "width=406,height=406,left=509,top=0,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no"
+  //     );
 
-    //}
-  //}
+  //   }
+  // }
     
   /*useEffect(() => {
     fetchSeasonList().then((data) => {
@@ -90,6 +90,7 @@ export default function HomePage() {
       { TITLE: "26. 4월 시즌" },
       { TITLE: "26. 5월 시즌" },
       { TITLE: "26. 6월 시즌" },
+      { TITLE: "26. 7월 시즌" },
     ];
 
     setSeasonList(staticSeasonList);
