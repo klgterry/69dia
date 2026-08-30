@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { gasGet } from "@/lib/gasClient";
 
 async function fetchSeasonList() {
   const response = await fetch("/api/gasApi?action=getSeasonList");
@@ -21,9 +22,7 @@ async function fetchUserSummary() {
 }
 
 async function fetchSeasonPrevRank() {
-  const res = await fetch("/api/gasApi?action=getSeasonPrevRank");
-  const data = await res.json();
-  return data; // [{ PLAYER: "야로", PrevRank: 20 }, ...]
+  return gasGet("getSeasonPrevRank"); // [{ PLAYER: "야로", PrevRank: 20 }, ...]
 }
 
 export default function HomePage() {

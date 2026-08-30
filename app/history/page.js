@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import HeadToHeadSlide2 from "@/components/HeadToHeadSlide2";
 import DuoBalance from "@/components/DuoBalance";
+import { gasGet } from "@/lib/gasClient";
 
 // 클래스명 매핑 (Main 페이지와 동일한 아이콘 파일명 사용)
 const classIconMap = {
@@ -45,9 +46,7 @@ async function fetchSeasonList() {
 }
 
 async function fetchUserDuoStats() {
-  const res = await fetch("/api/gasApi?action=getUserDuoStats");
-  const data = await res.json();
-  return data;
+  return gasGet("getUserDuoStats");
 }
 
 export default function HistoryPage() {
