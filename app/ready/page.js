@@ -5,6 +5,15 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Slot from "@/components/Slot";
 import { ClipLoader } from "react-spinners";
+import {
+  parsePlayersInput,
+  calculateEffectiveMMR,
+  getPlayerCount,
+  checkClassDistribution,
+  buildTeamsByPairSplit,
+  violatesPairSplit,
+  buildTeamsByProposal,
+} from "@/lib/teamBalancer";
 
 
 async function fetchLeaderboard() {
@@ -51,60 +60,6 @@ async function fetchUserSummary() {
   const response = await fetch("/api/gasApi?action=getUserSummary");
   if (!response.ok) throw new Error("요약 데이터를 가져오지 못했습니다.");
   return await response.json(); // [{ SEASON, PLAYER, TOTAL_WINS, TOTAL_RANK, D_WINS, D_RANK, ... }]
-}
-
-function parsePlayersInput(inputString) {
-  const parsed = {};
-
-  // ✅ 전체 문자열에서 유저명(옵션) 구조를 정규식으로 추출
-  const regex = /([^\s,\/()]+)(?:\(([^)]+)\))?/g;
-  let match;
-
-  while ((match = regex.exec(inputString)) !== null) {
-    const username = match[1].trim();
-    const classRaw = match[2];
-
-    if (classRaw) {
-      const classes = classRaw.split(",").map(c => c.trim());
-
-      if (classes.length > 3) {
-        alert(`🚨 ${username}의 클래스는 최대 3개까지만 입력 가능합니다!\n현재 입력된 클래스: ${classes.join(", ")}`);
-        continue;
-      }
-
-      parsed[username] = classes;
-    } else {
-      parsed[username] = null;
-    }
-  }
-
-  return parsed;
-}
-
-
-function calculateEffectiveMMR(players, parsedPlayers) {
-  return players.map((p) => {
-    const preferred = parsedPlayers[p.username];
-    let effectiveMMR = p.mmr;
-
-    if (preferred && preferred.length > 0) {
-      const mmrs = preferred.map((cls) => {
-        switch (cls) {
-          case "드": return p.mmrD;
-          case "어": return p.mmrA;
-          case "넥": return p.mmrN;
-          case "슴": return p.mmrS;
-          default: return null;
-        }
-      }).filter(m => m !== null);
-
-      if (mmrs.length > 0) {
-        effectiveMMR = mmrs.reduce((a, b) => a + b, 0) / mmrs.length;
-      }
-    }
-
-    return { ...p, effectiveMMR };
-  });
 }
 
 function copyTeamResult(teamA, teamB) {
@@ -154,40 +109,6 @@ const playSound = (fileName = "mix.mp3") => {
   }
 };
 
-function checkClassDistribution(players) {
-  const counts = { 드: 0, 어: 0, 넥: 0, 슴: 0 };
-
-  players.forEach(player => {
-    const classList = player.class?.split(/,\s*/).map(c => c.trim()) || [];
-    for (const cls of Object.keys(counts)) {
-      if (classList.includes(cls)) counts[cls]++;
-    }
-  });
-
-  const missing = Object.entries(counts)
-    .filter(([cls, count]) => count < 2)
-    .map(([cls]) => cls);
-
-  if (missing.length > 0) {
-    alert(`🚨 클래스 분포가 부족합니다!\n❌ 부족한 클래스: ${missing.join(", ")}`);
-    return false;
-  }
-
-  return true;
-}
-
-function getPlayerCount(players) {
-  // 1. 괄호 안 내용 제거: 참치(어,드) → 참치
-  const cleaned = players.replace(/\([^)]*\)/g, '');
-
-  // 2. 쉼표로 분리해서 유저만 카운트
-  const names = cleaned.split(',')
-    .map(name => name.trim())
-    .filter(name => name.length > 0);
-
-  return names.length;
-}
-
 // ===================== DEBUG UTILS (ADD) =====================
 function dbgTitle(title) {
   console.log(`\n\n════════════════════════════════════════════════════`);
@@ -198,136 +119,6 @@ function dbgTitle(title) {
 function fmtTeam(arr) {
   if (!arr) return '[]';
   return '[' + arr.map(p => `${p.username}(${Math.round(p.effectiveMMR ?? p.mmr ?? 0)})`).join(', ') + ']';
-}
-
-function fmtList(arr) {
-  return arr.map(p => `${p.username}(${Math.round(p.effectiveMMR ?? p.mmr ?? 0)})`).join(', ');
-}
-
-// ✅ 강제 분리(1&2, 7&8) 시드 + 유틸 (JS)
-function seedHardSplit(sorted) {
-  dbgTitle('seedHardSplit: 하드 스플릿 시드 생성');
-  console.log('정렬 결과(내림차순):', fmtList(sorted));
-  const p1 = sorted[0];
-  const p2 = sorted[1];
-  const p7 = sorted[6];
-  const p8 = sorted[7];
-  console.log(`핵심 포인트 → P1:${p1.username}, P2:${p2.username}, P7:${p7.username}, P8:${p8.username}`);
-
-  const flip = Math.random() < 0.5;
-  const seedA = [p1, flip ? p7 : p8];
-  const seedB = [p2, flip ? p8 : p7];
-  console.log(`flip=${flip ? '1&7 vs 2&8' : '1&8 vs 2&7'}`);
-  console.log('seedA:', fmtTeam(seedA));
-  console.log('seedB:', fmtTeam(seedB));
-  return { seedA, seedB };
-}
-
-function containsBoth(team, a, b) {
-  const u = new Set(team.map(p => p.username));
-  const both = u.has(a.username) && u.has(b.username);
-  console.log(`containsBoth? team=[${team.map(p=>p.username).join(', ')}], pair=${a.username}&${b.username} → ${both ? '둘 다 포함' : '분리'}`);
-  return both;
-}
-
-// ✅ 인덱스 쌍(0-1, 2-3, 4-5, 6-7)로 강제 분할 팀 생성
-function buildTeamsByPairSplit(sorted) {
-  dbgTitle('buildTeamsByPairSplit: 쌍 분할로 팀 생성');
-  const pairs = [[0,1],[2,3],[4,5],[6,7]];
-  const teamA = [];
-  const teamB = [];
-
-  for (const [i, j] of pairs) {
-    const a = sorted[i];
-    const b = sorted[j];
-    const flip = Math.random() < 0.5; // 한 명은 A, 한 명은 B
-    if (flip) {
-      teamA.push(a); teamB.push(b);
-      console.log(`pair [${i+1}&${j+1}] → A:${a.username}, B:${b.username}`);
-    } else {
-      teamA.push(b); teamB.push(a);
-      console.log(`pair [${i+1}&${j+1}] → A:${b.username}, B:${a.username}`);
-    }
-  }
-
-  console.log('teamA(쌍 분할):', fmtTeam(teamA));
-  console.log('teamB(쌍 분할):', fmtTeam(teamB));
-  return { teamAData: teamA, teamBData: teamB, pairs };
-}
-
-// ✅ 팀이 쌍 분할 규칙을 어겼는지 검사 (같은 팀에 같은 쌍 2명 X)
-function violatesPairSplit(team, pairs, sorted) {
-  const names = new Set(team.map(p => p.username));
-  for (const [i, j] of pairs) {
-    const u = sorted[i], v = sorted[j];
-    const both = names.has(u.username) && names.has(v.username);
-    if (both) {
-      console.log(`🚫 pair [${i+1}&${j+1}] 한 팀에 모임 → 위반`);
-      return true;
-    }
-  }
-  return false;
-}
-
-function pickRand(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function buildTeamsByProposal(sorted) {
-  dbgTitle('buildTeamsByProposal: Case1({1,2} & {3,4-미러}), Case2(fix: 3~4/7~8 랜덤 1명)');
-
-  const [p1,p2,p3,p4,p5,p6,p7,p8] = sorted;
-
-  // 상위4에서 2명 시드
-  const top4 = [p1,p2,p3,p4];
-  const idx = [0,1,2,3];
-  for (let i = idx.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [idx[i], idx[j]] = [idx[j], idx[i]];
-  }
-  const seed = [top4[idx[0]], top4[idx[1]]];
-  const has = (x) => seed.some(s => s.username === x.username);
-
-  const CASE1_A = has(p1) && has(p2);   // {1,2}
-  const CASE1_B = has(p3) && has(p4);   // {3,4} → 1&2를 B로 묶는 미러
-
-  let teamA = [], teamB = [];
-
-  if (CASE1_A) {
-    // A = 1,2 + 8 + (5~6 중 1)
-    console.log('🧭 Case1(A): seed={1,2}');
-    teamA = [p1, p2, p8, pickRand([p5, p6])];
-
-  } else if (CASE1_B) {
-    // B = 1,2 + 8 + (5~6 중 1)
-    console.log('🪞 Case1(B-mirror): seed={3,4}');
-    teamB = [p1, p2, p8, pickRand([p5, p6])];
-    teamA = [p1,p2,p3,p4,p5,p6,p7,p8].filter(x => !teamB.some(t => t.username === x.username));
-
-  } else {
-    // ✅ Case2(수정): p1은 A, p2는 B 고정
-    //    MMR3~4 → 쌍분할 랜덤 1명
-    //    MMR6  → A 강제 포함
-    //    MMR7~8 → 쌍분할 랜덤 1명
-    console.log('🧭 Case2(fixed): p1→A, p2→B, (3~4) 1명 랜덤, 6 포함, (7~8) 1명 랜덤');
-
-    const pick34 = pickRand([p3, p4]);   // 🔹 제안서 규칙 반영: 3~4 랜덤 1명
-    const pick78 = pickRand([p7, p8]);   // 🔹 제안서 규칙 반영: 7~8 랜덤 1명
-
-    teamA = [p1, pick34, p6, pick78];    // A는 정확히 4명
-    // B는 나머지
-  }
-
-  const ALL = [p1,p2,p3,p4,p5,p6,p7,p8];
-  if (teamB.length === 0) {
-    teamB = ALL.filter(x => !teamA.some(t => t.username === x.username));
-  } else if (teamA.length === 0) {
-    teamA = ALL.filter(x => !teamB.some(t => t.username === x.username));
-  }
-
-  console.log('teamA:', fmtTeam(teamA));
-  console.log('teamB:', fmtTeam(teamB));
-  return { teamAData: teamA, teamBData: teamB };
 }
 
 // ================== END DEBUG UTILS (ADD) ====================
@@ -455,7 +246,17 @@ export default function TeamPage() {
       return;
     }
 
-    const parsedPlayers = parsePlayersInput(players); // ✅ 변경된 부분
+    const { parsed: parsedPlayers, errors: classInputErrors } = parsePlayersInput(players);
+    if (classInputErrors.length > 0) {
+      alert(
+        classInputErrors
+          .map(
+            (e) =>
+              `🚨 ${e.username}의 클래스는 최대 3개까지만 입력 가능합니다!\n현재 입력된 클래스: ${e.classes.join(", ")}`
+          )
+          .join("\n\n")
+      );
+    }
 
     for (const p of playerList) {
       parsedPlayers[p] = selectedClasses[p] || [];
@@ -500,7 +301,11 @@ export default function TeamPage() {
     });
 
     const playerData = await fetchPlayerInfo(playerList);
-    if (!checkClassDistribution(playerData)) return;
+    const classCheck = checkClassDistribution(playerData);
+    if (!classCheck.ok) {
+      alert(`🚨 클래스 분포가 부족합니다!\n❌ 부족한 클래스: ${classCheck.missing.join(", ")}`);
+      return;
+    }
     const enrichedPlayerData = calculateEffectiveMMR(playerData, parsedPlayers);
     const sorted = enrichedPlayerData.sort((a, b) => b.effectiveMMR - a.effectiveMMR);
 
