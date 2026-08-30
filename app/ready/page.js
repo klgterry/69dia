@@ -14,6 +14,7 @@ import {
   violatesPairSplit,
   buildTeamsByProposal,
 } from "@/lib/teamBalancer";
+import { gasGet, gasPost } from "@/lib/gasClient";
 
 
 async function fetchLeaderboard() {
@@ -36,23 +37,12 @@ async function fetchFavoritePlayers() {
 
 // 👇 이걸 TeamPage 컴포넌트 위에 선언
 async function fetchPlayerInfo(players) {
-  const response = await fetch("/api/gasApi?", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "getPlayersInfo",
-      players,
-    }),
-  });
-
-  const data = await response.json();
-  if (data.error) throw new Error(data.error);
+  const data = await gasPost("getPlayersInfo", { players });
   return data.players;
 }
 
 async function fetchRegisterPassword() {
-  const res = await fetch("/api/gasApi?action=getRegisterPassword");
-  const data = await res.json();
+  const data = await gasGet("getRegisterPassword");
   return data.password;
 }
 

@@ -16,6 +16,7 @@ import {
   LabelList,
 } from "recharts";
 import React from "react";
+import LoadError from "@/components/LoadError";
 
 
 const classLabelMap = {
@@ -35,11 +36,13 @@ const classColorMap = {
 export default function UserStatsSection({ selectedUser = "규석문" }) {
   const [winDist, setWinDist] = useState([]);
   const [rankTrend, setRankTrend] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!selectedUser) return;
 
     const fetchData = async () => {
+      setError(null);
       try {
         const distRes = await fetch(
           `/api/gasApi?action=getUserWinClassDistribution&username=${encodeURIComponent(selectedUser)}`
@@ -72,6 +75,7 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
         console.error("❌ 통계 데이터 불러오기 실패", err);
         setWinDist([]);
         setRankTrend([]);
+        setError(err);
       }
     };
 
@@ -147,6 +151,10 @@ export default function UserStatsSection({ selectedUser = "규석문" }) {
       <h3 className="text-xl font-bold text-white mb-4 text-center drop-shadow-sm mt-5">
         📊 <span className="text-yellow-300">{selectedUser}</span>의 클래스 승률 & 랭킹 추이
       </h3>
+
+      {error && (
+        <LoadError message="통계 데이터를 불러오지 못했습니다." />
+      )}
 
       <div className="flex justify-between w-full px-4 mt-4">
         {/* 왼쪽: 클래스별 승률 */}

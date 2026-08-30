@@ -3,16 +3,20 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import LoadError from "@/components/LoadError";
 
 export default function WeeklyRanking() {
   const [wins, setWins] = useState([]);
   const [streaks, setStreaks] = useState([]);
   const [duos, setDuos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     async function fetchAll() {
       setIsLoading(true);
+      setError(null);
       try {
         const [winsRes, streaksRes, duosRes] = await Promise.all([
           fetch("/api/gasApi?action=getWeeklyRanking"),
@@ -35,13 +39,14 @@ export default function WeeklyRanking() {
         setDuos(sortedDuos);
       } catch (err) {
         console.error("❌ 주간 랭킹 데이터 로딩 실패:", err);
+        setError(err);
       } finally {
         setIsLoading(false);
       }
     }
-  
+
     fetchAll();
-  }, []);
+  }, [reloadKey]);
   
 
   function assignRanks(data, key = "WINS") {
@@ -131,6 +136,13 @@ export default function WeeklyRanking() {
     >
       {isLoading ? (
         <p className="text-center text-gray-400 pb-10"></p>
+      ) : error ? (
+        <div className="flex h-full items-center justify-center">
+          <LoadError
+            message="주간 랭킹을 불러오지 못했습니다."
+            onRetry={() => setReloadKey((k) => k + 1)}
+          />
+        </div>
       ) : (
         <div className="w-full overflow-x-auto">
           <table className={`table-auto w-[350px] h-[400px] mx-auto text-1xl text-left border-separate border-spacing-x-2 mt-65`}>

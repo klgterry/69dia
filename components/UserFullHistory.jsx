@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import LoadError from "@/components/LoadError";
 
 // 클래스명 매핑
 const classIconMap = {
@@ -21,10 +22,12 @@ async function fetchGameHistory() {
 
 export default function UserFullHistory({ selectedUser }) {
   const [filteredGames, setFilteredGames] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!selectedUser) return;
 
+    setError(null);
     fetchGameHistory()
       .then((games) => {
         const normalizedUser = selectedUser.trim().toLowerCase();
@@ -49,6 +52,7 @@ export default function UserFullHistory({ selectedUser }) {
       })
       .catch((err) => {
         console.error("❌ 유저 게임 이력 불러오기 실패", err);
+        setError(err);
       });
   }, [selectedUser]);
 
@@ -65,6 +69,10 @@ export default function UserFullHistory({ selectedUser }) {
       <h3 className="text-xl font-bold text-white mb-4 text-center drop-shadow-sm mt-3">
         📜 <span className="text-yellow-300">{selectedUser}</span>의 최근 경기 상세
       </h3>
+
+      {error && (
+        <LoadError message="최근 경기를 불러오지 못했습니다." />
+      )}
 
       <div className="relative w-[780px] h-[100px] mx-auto mt-6">
 

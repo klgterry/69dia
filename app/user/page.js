@@ -7,12 +7,11 @@ import { useRouter } from "next/navigation";
 import UserFullHistory from "@/components/UserFullHistory";
 import UserStatsSection from "@/components/UserStatsSection";
 import WeeklyRanking from "@/components/WeeklyRanking"; // 경로는 실제 파일에 맞게
+import { gasGet } from "@/lib/gasClient";
 
 // ✅ GAS API
 async function fetchUserList() {
-  const res = await fetch("/api/gasApi?action=getFilteredUsers");
-  const data = await res.json();
-  return data;
+  return gasGet("getFilteredUsers");
 }
 
 async function fetchSeasonList() {
@@ -28,21 +27,15 @@ async function fetchUserSummary() {
 }
 
 async function fetchSeasonPrevRank() {
-  const res = await fetch("/api/gasApi?action=getSeasonPrevRank");
-  const data = await res.json();
-  return data; // [{ PLAYER: "야로", PrevRank: 20 }, ...]
+  return gasGet("getSeasonPrevRank"); // [{ PLAYER: "야로", PrevRank: 20 }, ...]
 }
 
 async function fetchUserDuoStats() {
-  const res = await fetch("/api/gasApi?action=getUserDuoStats");
-  const data = await res.json();
-  return data;
+  return gasGet("getUserDuoStats");
 }
 
 async function fetchRecentGames() {
-  const res = await fetch("/api/gasApi?action=getRecentGames");
-  const data = await res.json();
-  return data;
+  return gasGet("getRecentGames");
 }
 
 async function fetchLeaderboardForAllSeason() {
